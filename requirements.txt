@@ -1,0 +1,5 @@
+# Libs specific to the iaas application
+junos-eznc
+netaddr
+ncclient
+sshpubkeys
