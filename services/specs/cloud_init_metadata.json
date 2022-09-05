@@ -1,0 +1,13 @@
+{
+    "cpu": 1,
+    "dns": "",
+    "ram": 1,
+    "storage": {
+        "gb": 10,
+        "name": "Primary",
+        "primary": true
+    },
+    "ip_address": {
+        "address": "169.254.169.254"
+    }
+}
