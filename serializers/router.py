@@ -14,6 +14,9 @@ class RouterSerializer(serpy.Serializer):
             A null value means the Router has infinite capacity.
         type: integer
         nullable: true
+    capacity_available:
+        description: The space available on  the Router for Virtual Routers
+        type: integer
     created:
         description: The date that the Router entry was created
         type: string
@@ -77,6 +80,7 @@ class RouterSerializer(serpy.Serializer):
     """
     asset_tag = serpy.Field()
     capacity = serpy.Field()
+    capacity_available = serpy.Field()
     created = serpy.Field(attr='created.isoformat', call=True)
     credentials = serpy.Field()
     enabled = serpy.Field()

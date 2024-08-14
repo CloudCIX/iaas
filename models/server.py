@@ -1,5 +1,6 @@
 # stdlib
-from math import ceil, sqrt
+import logging
+from math import ceil
 from typing import List
 # libs
 from cloudcix_rest.models import BaseManager, BaseModel
@@ -10,6 +11,7 @@ from django.urls import reverse
 from .server_type import ServerType
 from .storage_type import StorageType
 from iaas import state
+from iaas.utils import dot_product, magnitude
 
 __all__ = [
     'Server',
@@ -30,6 +32,7 @@ class ServerManager(BaseManager):
             'storage_type',
             'type',
         ).prefetch_related(
+            'devices',
             'interfaces',
             'guest_vms',
         )
@@ -48,7 +51,7 @@ class Server(BaseModel):
     RAM_BASE_LIMIT = 8
     CPU_CREATE_LIMIT = 0.77
     DISK_CREATE_LIMIT = 0.77
-    RAM_CREATE_LIMIT = 0.77
+    RAM_CREATE_LIMIT = 0.85
     CPU_UPDATE_LIMIT = 1.00
     DISK_UPDATE_LIMIT = 0.9
     RAM_UPDATE_LIMIT = 0.95
@@ -200,7 +203,7 @@ class Server(BaseModel):
     @property
     def vcpus_in_use(self) -> int:
         """
-        Return the total amount of GB on the server currently in use by VMs
+        Return the total amount of vCPUs on the server currently in use by VMs
         """
         return self.guest_vms.exclude(
             state=state.CLOSED,
@@ -221,75 +224,41 @@ class Server(BaseModel):
             self.vcpus_for_create - self.vcpus_in_use,
         ]
 
-    @property
-    def base_klinavicius(self) -> List[int]:
+    def get_suitability(self, vm_klinavicius: List[int]) -> float:
         """
-        Returns the base klinavicius vector for the Server.
-        This is a vector containing the values of [ram, gb, vcpus], without taking into account the VMs currently
-        on the Server
-        """
-        return [self.ram, self.gb, self.cores * self.OVERSUBSCRIPTION_VALUE]
+        Find if this server is a good match for the passed VM. If the VM and servers are represented as vectors, the
+        most suitable server is the one that creates the smallest angle with the VM. This angle can be found by
+        calculating the dot (inner) product of the two vectors. Dot product is written as:
 
-    @property
-    def availability_ratio(self) -> List[float]:
-        """
-        Calculate the availability ratio of the Server.
-        The availability ratio is the percentages of the specs in the klinavicius vectors that are currently available
-        on the Server, after taking into account the VMs currently running on it.
-        """
-        current = self.klinavicius
-        base = self.base_klinavicius
-        return [
-            current[i] / base[i]
-            if base[i] > 0 else 0
-            for i in range(len(current))
-        ]
+         |V| cos(theta) = ( V dot S ) / |S|
+            V - VM's Klinavicius vector
+            S - Server's Klinavicius vector
+            |V| - Magnitude of V
+            |S| - Magnitude of S
+            V dot S - Dot product between V and S
+            theta - The angle between V and S
 
-    def get_consumption_delta(self, vm_klinavicius: List[int]) -> float:
-        """
-        Given a VM's klinavicius vector, get the consumption delta value for the VM on this Server.
-
-        | VV - (VH' / S) |
-            VV  - Current Klinavicius for VM
-            VH' - Current Klinavicius for Server
-            S   - VH' / VV
+        Since this method will be run one VM against different server records, we'll return |V| cos(theta) for the
+        comparisons since |V| will be constant.
 
         :param vm_klinavicius: The klinavicius vector for the VM being tested on this Server.
+        :returns: A value between 0 and |V|, with a larger number implying this server is a good match for the VM
         """
         server_klinavicius = self.klinavicius
-
         # Ensure that none of the requirements outweigh what the server has available
         for i in range(len(vm_klinavicius)):
             if vm_klinavicius[i] > server_klinavicius[i]:
-                return float('inf')
+                return float('-inf')
 
-        # Generate the consumption vector - A list of the percentages of consumption for each field of the Server by the
-        # VM
-        consumption_vector = [
-            vm_klinavicius[i] / server_klinavicius[i]
-            if server_klinavicius[i] > 0 else 0
-            for i in range(len(vm_klinavicius))
-        ]
-        # Find the length of the consumption vector, we will need this for calculating the scale
-        consumption_length = sqrt(sum(val ** 2 for val in consumption_vector))
+        suitability = float('-inf')
+        logger = logging.getLogger('iaas.server.get_suitability')
+        try:
+            suitability = dot_product(vm_klinavicius, server_klinavicius) / magnitude(server_klinavicius)
+        except ValueError:  # pragma: no cover
+            logger.error(
+                'Could not compute suitability of VM',
+                exc_info=True,
+                extra={'server_id': self.pk, 'sever_resources': server_klinavicius, 'vm_resources': vm_klinavicius},
+            )
 
-        # Calculate the length of the availability vector, we'll use this to scale the other vectors in order to find
-        # similarity values
-        availability_ratio = self.availability_ratio
-        availability_length = sqrt(sum(val ** 2 for val in availability_ratio))
-
-        # Calculate the factor by which to scale the server down to make the vectors for VM and Server equal in length
-        scale: float
-        if consumption_length == 0:  # pragma: no cover
-            scale = float('inf')
-        else:
-            scale = availability_length / consumption_length
-
-        # Scale the Server's availability vector to be the same length as the VM's
-        scaled_availability = [val / scale for val in availability_ratio]
-
-        # Calculate the differences between the consumption and scaled availability ratios
-        differences = [consumption_vector[i] - scaled_availability[i] for i in range(len(consumption_vector))]
-
-        # Get the consumption delta by calculating the length of the differences vector
-        return sqrt(sum(val ** 2 for val in differences))
+        return suitability

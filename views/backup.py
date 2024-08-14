@@ -19,7 +19,7 @@ from iaas.controllers import BackupListController, BackupCreateController, Backu
 from iaas.models import (
     Backup,
     BackupHistory,
-    Project,
+    VM,
 )
 from iaas.permissions.backup import Permissions
 from iaas.serializers import BackupSerializer
@@ -124,14 +124,17 @@ class BackupCollection(APIView):
             if err is not None:
                 return err
 
-        # A backup can only be created if no backups are being scrubbed
         with tracer.start_span('verify_backup_can_be_created', child_of=request.span):
+            # A backup can only be created if no backups are being scrubbed
             if Backup.objects.filter(
-                vm_id=controller._instance.vm_id,
+                vm_id=controller.instance.vm.pk,
             ).exclude(
                 state__in=states.STABLE_STATES,
             ).exists():
                 return Http400(error_code='iaas_backup_create_001')
+            # A backup can only be created if the VM does not have GPUs attached
+            if VM.objects.get(pk=controller.instance.vm.pk).gpu > 0:
+                return Http400(error_code='iaas_backup_create_002')
 
         with tracer.start_span('saving_object', child_of=request.span):
             controller.instance.state = states.REQUESTED
@@ -147,8 +150,8 @@ class BackupCollection(APIView):
                 vm_id=controller.instance.vm.pk,
             )
 
-        with tracer.start_span('activate_run_robot', child_of=request.span):
-            Project.objects.filter(pk=controller.instance.vm.project.pk).update(run_robot=True, run_icarus=True)
+        with tracer.start_span('setting_run_robot_flags', child_of=request.span):
+            controller.instance.vm.project.set_run_robot_flags()
 
         with tracer.start_span('serializing_data', child_of=request.span):
             data = BackupSerializer(instance=controller.instance).data
@@ -186,7 +189,7 @@ class BackupResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span) as span:
-            error = Permissions.head(request, obj, span)
+            error = Permissions.read(request, obj, span)
             if error is not None:
                 return Http404()
 
@@ -305,8 +308,8 @@ class BackupResource(APIView):
             controller.instance.modified_by = request.user.id
             controller.instance.save()
 
-        with tracer.start_span('activate_run_robot', child_of=request.span):
-            Project.objects.filter(pk=controller.instance.vm.project.pk).update(run_robot=True, run_icarus=True)
+        with tracer.start_span('setting_run_robot_flags', child_of=request.span):
+            obj.vm.project.set_run_robot_flags()
 
         with tracer.start_span('serializing_data', child_of=request.span):
             data = BackupSerializer(instance=controller.instance).data

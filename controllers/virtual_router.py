@@ -126,7 +126,7 @@ class VirtualRouterCreateController(ControllerBase):
             self.cleaned_data['router_ip_addresses'] = router_ip_addresses
             return None
 
-        # No phantom router, check if their is a Router with capacity available
+        # No phantom router, check if there is a Router with capacity available
         routers = Router.objects.filter(
             region_id=region,
             enabled=True,
@@ -175,7 +175,6 @@ class VirtualRouterCreateController(ControllerBase):
         except helpers.IAASException as e:  # pragma: no cover
             return e.args[0]
         ip = IPAddress.objects.create(
-            cloud=True,
             address=data['address'],
             name=data['name'],
             subnet_id=data['subnet_id'],
@@ -325,7 +324,7 @@ class VirtualRouterUpdateController(ControllerBase):
                 deleted__isnull=True,
                 virtual_router_id=self._instance.id,
             ).values_list('pk', flat=True)
-            if bool(vpn_ids):
+            if any(vpn_ids):
                 existing_remote_subnets = netaddr.IPSet(
                     Route.objects.filter(
                         deleted__isnull=True,

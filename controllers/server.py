@@ -36,6 +36,7 @@ class ServerListController(ControllerBase):
             'enabled': (),
             'gb': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
+            'interfaces__ip_address': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
             'model': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
             'ram': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'region_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
@@ -123,7 +124,7 @@ class ServerCreateController(ControllerBase):
         description: Name of the model of the Server. Optional.
         type: string
         """
-        if not model:
+        if model is None:
             return None
         model = str(model).strip()
 
@@ -138,7 +139,7 @@ class ServerCreateController(ControllerBase):
         description: Total amount of RAM in the Server, in GB.
         type: integer
         """
-        if not ram:
+        if ram is None:
             return 'iaas_server_create_107'
 
         try:
@@ -157,7 +158,7 @@ class ServerCreateController(ControllerBase):
         description: Total number of physical cores in the Server.
         type: integer
         """
-        if not cores:
+        if cores is None:
             return 'iaas_server_create_110'
 
         try:
@@ -176,7 +177,7 @@ class ServerCreateController(ControllerBase):
         description: The ID of the StorageType that will be used in the Server.
         type: integer
         """
-        if not storage_type_id:
+        if storage_type_id is None:
             return 'iaas_server_create_113'
 
         try:
@@ -255,7 +256,7 @@ class ServerUpdateController(ControllerBase):
         description: Total number of physical cores in the Server.
         type: integer
         """
-        if not cores:
+        if cores is None:
             return None
         try:
             cores = int(cores)
@@ -287,7 +288,7 @@ class ServerUpdateController(ControllerBase):
         description: The amount of GB that is usable in the Server for the Cloud. Must be more than 100 GB.
         type: integer
         """
-        if not gb:
+        if gb is None:
             return None
 
         try:
@@ -306,7 +307,7 @@ class ServerUpdateController(ControllerBase):
         description: Name of the model of the Server. Optional.
         type: string
         """
-        if not model:
+        if model is None:
             return None
         model = str(model).strip()
 

@@ -52,10 +52,8 @@ class AllocationCollection(APIView):
         with tracer.start_span('get_objects', child_of=request.span):
             objs = Allocation.objects.all()
             if request.user.address['id'] != 1:
-                objs = Allocation.objects.filter(
-                    Q(asn__member_id=request.user.member['id'])
-                    | Q(address_id=request.user.address['id']),
-                )
+                q = Q(asn__member_id=request.user.member['id']) | Q(address_id=request.user.address['id'])
+                objs = Allocation.objects.filter(q)
             try:
                 objs = objs.filter(
                     **controller.cleaned_data['search'],
@@ -156,7 +154,7 @@ class AllocationResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span):
-            error = Permissions.head(request, obj)
+            error = Permissions.read(request, obj)
             if error is not None:
                 return Http404()
 

@@ -1,6 +1,7 @@
 # libs
 from django.db import models
 # local
+from .resource import Resource
 from .vm import VM
 from .vpn import VPN
 
@@ -20,6 +21,7 @@ class BOM(models.Model):
     """
     created = models.DateTimeField()
     quantity = models.IntegerField()
+    resource = models.ForeignKey(Resource, related_name='skus', on_delete=models.CASCADE, null=True)
     sku = models.CharField(max_length=250)
     vm = models.ForeignKey(VM, related_name='skus', on_delete=models.CASCADE, null=True)
     vpn = models.ForeignKey(VPN, related_name='skus', on_delete=models.CASCADE, null=True)

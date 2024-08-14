@@ -3,10 +3,13 @@ from .app_settings import AppSettingsCreateController, AppSettingsUpdateControll
 from .asn import ASNCreateController, ASNUpdateController, ASNListController
 from .backup import BackupCreateController, BackupUpdateController, BackupListController
 from .backup_history import BackupHistoryListController
+from .ceph import CephCreateController, CephListController, CephUpdateController
 from .cix_blacklist import CIXBlacklistCreateController, CIXBlacklistListController, CIXBlacklistUpdateController
 from .cix_whitelist import CIXWhitelistListController, CIXWhitelistUpdateController, CIXWhitelistCreateController
 from .cloud import CloudCreateController, CloudUpdateController
 from .cloud_bill import CloudBillListController
+from .device import DeviceCreateController, DeviceListController, DeviceUpdateController
+from .device_type import DeviceTypeListController
 from .domain import DomainCreateController, DomainListController
 from .dynamic_remote_subnet import DynamicRemoteSubnetController
 from .firewall_rule import FirewallRuleCreateController
@@ -21,6 +24,7 @@ from .project import ProjectListController, ProjectCreateController, ProjectUpda
 from .ptr_record import PTRRecordCreateController, PTRRecordListController, PTRRecordUpdateController
 from .record import RecordCreateController, RecordListController, RecordUpdateController
 from .region_image import RegionImageCreateController
+from .region_storage_type import RegionStorageTypeCreateController
 from .route import RouteCreateController, RouteUpdateController
 from .router import RouterListController, RouterCreateController, RouterUpdateController
 from .run_robot import RunRobotTurnOffController
@@ -67,12 +71,25 @@ __all__ = [
     'CIXBlacklistListController',
     'CIXBlacklistUpdateController',
 
+    # Ceph
+    'CephCreateController',
+    'CephListController',
+    'CephUpdateController',
+
     # Cloud
     'CloudCreateController',
     'CloudUpdateController',
 
     # Cloud Bill
     'CloudBillListController',
+
+    # Device
+    'DeviceCreateController',
+    'DeviceListController',
+    'DeviceUpdateController',
+
+    # Device Type
+    'DeviceTypeListController',
 
     # Domain
     'DomainCreateController',
@@ -135,6 +152,9 @@ __all__ = [
 
     # RegionImage
     'RegionImageCreateController',
+
+    # RegionStorageType
+    'RegionStorageTypeCreateController',
 
     # Route
     'RouteCreateController',

@@ -40,21 +40,6 @@ class Permissions:
         return None
 
     @staticmethod
-    def head(request: Request, router: Router) -> Optional[Http403]:
-        """
-        The request to access a Router is valid if:
-        - Router's region is requesting users address
-        """
-        if request.user.id == 1:  # pragma: no cover
-            return None
-
-        # Router's region is requesting users address
-        if router.region_id != request.user.address['id']:
-            return Http403()
-
-        return None
-
-    @staticmethod
     def read(request: Request, router: Router) -> Optional[Http403]:
         """
         The request to read a Router is valid if:

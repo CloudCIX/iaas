@@ -136,12 +136,11 @@ class SubnetCollection(APIView):
                 robot_filtering = Q(allocation__asn__number__in=[(id + ASN.pseudo_asn_offset) for id in project_ids])
 
             with tracer.start_span('query_db', child_of=span):
-                q = (
-                    Q(allocation__asn__member_id=request.user.member['id'])
-                    | Q(allocation__address_id=request.user.address['id'])
-                    | Q(parent__address_id=request.user.address['id'])
-                    | Q(address_id__in=address_ids)
-                )
+                q = Q(allocation__asn__member_id=request.user.member['id']) | \
+                    Q(allocation__address_id=request.user.address['id']) | \
+                    Q(parent__address_id=request.user.address['id']) | \
+                    Q(address_id__in=address_ids)
+
                 if robot_filtering is not None:
                     q = q | robot_filtering
                 try:
@@ -250,7 +249,7 @@ class SubnetResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span) as child_span:
-            error = Permissions.head(request, obj, child_span)
+            error = Permissions.read(request, obj, child_span)
             if error is not None:
                 return Http404()
 

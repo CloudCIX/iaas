@@ -1,6 +1,7 @@
 """
 Methods to interact with Rage4.
 Used to be a library but we're dropping that because it stopped some things from working
+Rage4 API Documentation: https://rage4.com/swagger/index.html?urls.primaryName=dns-legacy#/DNS
 """
 
 # stdlib
@@ -21,26 +22,19 @@ __all__ = [
     'record_create',
     'record_update',
     'record_delete',
-    'reverse_domain_create',
 ]
 
 # URLs
 # Domain
-DOMAIN_CREATE = 'https://secure.rage4.com/rapi/createregulardomain/'
+DOMAIN_CREATE = 'https://secure.rage4.com/rapi/createregulardomain'
 DOMAIN_DELETE = 'https://secure.rage4.com/rapi/deletedomain/{}'
-DOMAIN_LIST = 'https://secure.rage4.com/rapi/getdomains/'
-DOMAIN_UPDATE = 'https://secure.rage4.com/rapi/updatedomain/{}'
-
-# Reverse Domain Create
-REVERSE_DOMAIN_CREATE = {
-    4: 'https://secure.rage4.com/rapi/createreversedomain4/',
-    6: 'https://secure.rage4.com/rapi/createreversedomain6/',
-}
+DOMAIN_LIST = 'https://secure.rage4.com/rapi/getdomains'
+DOMAIN_UPDATE = 'https://secure.rage4.com/rapi/updatedomain'
 
 # Record
-RECORD_CREATE = 'https://secure.rage4.com/rapi/createrecord/{}'
-RECORD_DELETE = 'https://secure.rage4.com/rapi/deleterecord/{}'
-RECORD_UPDATE = 'https://secure.rage4.com/rapi/updaterecord/{}'
+RECORD_CREATE = 'https://secure.rage4.com/rapi/createrecord'
+RECORD_DELETE = 'https://secure.rage4.com/rapi/deleterecord'
+RECORD_UPDATE = 'https://secure.rage4.com/rapi/updaterecord'
 
 
 def _call(
@@ -97,7 +91,6 @@ def domain_delete(pk: int) -> Optional[requests.Response]:  # pragma: no cover
 
 
 def domain_list() -> Optional[requests.Response]:  # pragma: no cover
-
     """
     Retrieve a list of domains in rage4.
     The only use for this is because we don't store PTR domains in the DB for some reason.
@@ -106,41 +99,33 @@ def domain_list() -> Optional[requests.Response]:  # pragma: no cover
     return _call(DOMAIN_LIST, {}, 'domain_list', email)
 
 
-def domain_update(pk: int, params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
+def domain_update(params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
     """
     Send a request to update the domain with the specified ID
     """
     email = True
-    return _call(DOMAIN_UPDATE.format(pk), params, 'domain_update', email)
+    return _call(DOMAIN_UPDATE, params, 'domain_update', email)
 
 
-def record_create(domain_id: int, params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
+def record_create(params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
     """
     Create a new record using the given details under the domain with the specified id
     """
     email = False
-    return _call(RECORD_CREATE.format(domain_id), params, 'record_create', email)
+    return _call(RECORD_CREATE, params, 'record_create', email)
 
 
-def record_delete(pk: int) -> Optional[requests.Response]:  # pragma: no cover
+def record_delete(params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
     """
     Delete the specified record
     """
     email = False
-    return _call(RECORD_DELETE.format(pk), {}, 'RECORD_DELETE', email)
+    return _call(RECORD_DELETE, params, 'RECORD_DELETE', email)
 
 
-def record_update(pk: int, params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
+def record_update(params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
     """
     Update the specified record using the given details
     """
     email = False
-    return _call(RECORD_UPDATE.format(pk), params, 'record_update', email)
-
-
-def reverse_domain_create(version: int, params: Dict[str, Any]) -> Optional[requests.Response]:  # pragma: no cover
-    """
-    Create a reverse domain for the specified IP version
-    """
-    email = True
-    return _call(REVERSE_DOMAIN_CREATE.get(version, ''), params, 'reverse_domain_create', email)
+    return _call(RECORD_UPDATE, params, 'record_update', email)

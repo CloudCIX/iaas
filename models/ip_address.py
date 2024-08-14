@@ -38,9 +38,9 @@ class IPAddress(BaseModel):
     """
     # Fields
     address = models.GenericIPAddressField()
-    cloud = models.BooleanField(default=False)  # Indicates if the IP Address is related to CloudCIX
     credentials = models.CharField(max_length=64, default='')  # Credentials of the server this address is assigned to
     location = models.CharField(max_length=64, default='')
+    mac_address = models.CharField(max_length=17, null=True)
     modified_by = models.IntegerField(null=True)
     name = models.CharField(max_length=64, default='')
     ping = models.BooleanField(default=False)
@@ -66,7 +66,6 @@ class IPAddress(BaseModel):
             # Foreign Keys are automatically indexed by Django or Postgres, not sure which
             models.Index(fields=['id'], name='ip_address_id'),
             models.Index(fields=['address'], name='ip_address_address'),
-            models.Index(fields=['cloud'], name='ip_address_cloud'),
             models.Index(fields=['created'], name='ip_address_created'),
             models.Index(fields=['deleted'], name='ip_address_deleted'),
             models.Index(fields=['name'], name='ip_address_name'),

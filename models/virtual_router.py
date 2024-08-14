@@ -1,5 +1,5 @@
 # stdlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 # libs
 from cloudcix_rest.models import BaseManager, BaseModel
@@ -93,6 +93,26 @@ class VirtualRouter(BaseModel):
         # RUNNING_UPDATE or QUIESCED_UPDATE is allowed
         return states.RUNNING_UPDATE in states.USER_STATE_MAP.get(self.state, {}) or \
             states.QUIESCED_UPDATE in states.USER_STATE_MAP.get(self.state, {})
+
+    @property
+    def scrub_queue_time_passed(self):
+        if self.state == states.SCRUB_QUEUE:
+            return self.updated + timedelta(hours=self.project.grace_period) < datetime.now()
+        return False
+
+    @property
+    def stable(self):
+        """
+        Determine if the Virtual Router instance is stable.
+
+        The Virtual Router is stable if it is in a stable state:
+            - RUNNING
+            - QUIESCED
+            - SCRUB_QUEUE
+            - CLOSED
+        """
+
+        return self.state in states.STABLE_STATES
 
     def set_deleted(self):
         """

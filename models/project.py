@@ -3,12 +3,15 @@ from collections import deque
 from typing import Deque, List
 # libs
 from cloudcix_rest.models import BaseModel
+from django.core.cache import cache
 from django.db import models
 from django.urls import reverse
 # local
-from iaas import state
+from iaas import state, resource_type
+from iaas.utils import get_region_cache_key
 from .asn import ASN
 from .billable_model import BillableModelMixin
+
 
 __all__ = [
     'Project',
@@ -22,6 +25,7 @@ class Project(BaseModel):
     address_id = models.IntegerField()
     archived = models.DateTimeField(null=True)
     closed = models.BooleanField(default=False)
+    grace_period = models.IntegerField(default=168, null=True)
     manager_id = models.IntegerField()  # id of the Project's Manager - Send emails to this user
     name = models.CharField(max_length=100)
     note = models.TextField(null=True)
@@ -41,6 +45,7 @@ class Project(BaseModel):
             models.Index(fields=['address_id'], name='project_address_id'),
             models.Index(fields=['archived'], name='project_archived'),
             models.Index(fields=['closed'], name='project_closed'),
+            models.Index(fields=['grace_period'], name='project_grace_period'),
             models.Index(fields=['deleted'], name='project_deleted'),
             models.Index(fields=['manager_id'], name='project_manager_id'),
             models.Index(fields=['name'], name='project_name'),
@@ -73,7 +78,17 @@ class Project(BaseModel):
         if self.virtual_router is None:  # pragma: no cover
             status = False
         else:
-            status = self.virtual_router.state in states and all([vm.stable for vm in self.vms.all()])
+            status = self.virtual_router.state in states and all([vm.state in states for vm in self.vms.all()])
+        return status
+
+    def _check_infrastructure_stable(self) -> bool:
+        """
+        Check that the project infrastructure is stable
+        """
+        if self.virtual_router is None:  # pragma: no cover
+            status = False
+        else:
+            status = self.virtual_router.stable and all([vm.stable for vm in self.vms.all()])
         return status
 
     @property
@@ -124,7 +139,7 @@ class Project(BaseModel):
             - SCRUB_QUEUE
             - CLOSED
         """
-        return self._check_infrastructure_states(state.STABLE_STATES)
+        return self._check_infrastructure_stable()
 
     def set_deleted(self):
         """
@@ -132,6 +147,16 @@ class Project(BaseModel):
         """
         asn = ASN.objects.get(number=self.pk + ASN.pseudo_asn_offset)
         asn.cascade_delete()
+
+    def set_run_robot_flags(self):
+        """
+        Set flags that indicates there is changes to infrastructure in the project and region
+        """
+        self.run_robot = True
+        self.run_icarus = True
+        self.save()
+        cache_key = get_region_cache_key(self.region_id)
+        cache.set(cache_key, True)
 
     def get_billable_models(self) -> Deque[BillableModelMixin]:
         """
@@ -144,6 +169,12 @@ class Project(BaseModel):
 
         # Get VPNs
         items.extend(self.virtual_router.vpn_tunnels.all())
+
+        # Get Resources
+        # TODO: Don't return VMs or VPNs here until they are migrated to the Resource model
+        items.extend(self.resources.filter(
+            resource_type__in=(resource_type.CEPH,)),
+        )
 
         # Return the deque
         return items

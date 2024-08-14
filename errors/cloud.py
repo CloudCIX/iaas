@@ -12,21 +12,16 @@ iaas_cloud_create_103 = (
 iaas_cloud_create_104 = 'The "vms" parameter is invalid. "vms" must be a list.'
 iaas_cloud_create_105 = 'The "vms" parameter is invalid. "vms" is required and must be a non empty list.'
 iaas_cloud_create_106 = 'The "vms" parameter is invalid. "vms" must be a list of dictionaries with data to create a VM.'
-iaas_cloud_create_107 = 'The "vpns" parameter is invalid. "vpns" must be a list.'
+iaas_cloud_create_107 = 'The "firewall_rules" parameter is invalid. "firewall_rules" must be a list.'
 iaas_cloud_create_108 = (
-    'The "vpns" parameter is invalid. "vpns" must be a list of dictionaries with data to create a VPN.'
-)
-
-iaas_cloud_create_109 = 'The "firewall_rules" parameter is invalid. "firewall_rules" must be a list.'
-iaas_cloud_create_110 = (
     'The "firewall_rules" parameter is invalid. "firewall_rules" must be a list of dictionaries with data to create a '
     'FirewallRule.'
 )
-iaas_cloud_create_111 = (
-    'There was an error creating your VPN. CloudCIX has hit an internal capacity limit. Our team have been notified.'
-)
 iaas_cloud_create_201 = 'You do not have permission to make this request. Robot users cannot exeucte this request.'
 iaas_cloud_create_202 = 'You do not have permission to make this request. Your Member must be self managed.'
+iaas_cloud_create_203 = (
+    'You do not have permission to make this request. A User must be public to create Cloud infrastructure.'
+)
 
 # Read
 iaas_cloud_read_001 = 'The "pk" path parameter is invalid. "pk" does not correspond to a valid Project record.'
@@ -55,16 +50,14 @@ iaas_cloud_update_103 = (
 iaas_cloud_update_104 = 'The "vms" parameter is invalid. "vms" must be a list.'
 iaas_cloud_update_105 = 'The "vms" parameter is invalid. "vms" is required and must be a non empty list.'
 iaas_cloud_update_106 = 'The "vms" parameter is invalid. "vms" must be a list of dictionaries with data to update a VM.'
-iaas_cloud_update_107 = 'The "vpns" parameter is invalid. "vpns" must be a list.'
+iaas_cloud_update_107 = 'The "firewall_rules" parameter is invalid. "firewall_rules" must be a list.'
 iaas_cloud_update_108 = (
-    'The "vpns" parameter is invalid. "vpns" must be a list of dictionaries with data to update a VPN.'
-)
-iaas_cloud_update_109 = 'The "firewall_rules" parameter is invalid. "firewall_rules" must be a list.'
-iaas_cloud_update_110 = (
     'The "firewall_rules" parameter is invalid. "firewall_rules" must be a list of dictionaries with data to create a '
     'FirewallRule.'
 )
-iaas_cloud_update_111 = 'This vm is invalid. The "id" field does not correspond with a valid VM record.'
-iaas_cloud_update_112 = 'This vpn is invalid. The "id" field does not correspond with a valid VPN record.'
+iaas_cloud_update_109 = 'This vm is invalid. The "id" field does not correspond with a valid VM record.'
 iaas_cloud_update_201 = 'You do not have permission to make this request. Robot users cannot exeucte this request.'
 iaas_cloud_update_202 = 'You do not have permission to make this request. You can only update Projects that you own.'
+iaas_cloud_update_203 = (
+    'You do not have permission to make this request. A User must be public to update Cloud infrastructure.'
+)

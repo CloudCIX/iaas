@@ -10,6 +10,8 @@ from rest_framework.request import QueryDict, Request
 from iaas.models import Allocation, Project
 from .asn import ASNCreateController
 from .virtual_router import VirtualRouterCreateController
+import iaas.state as states
+
 
 __all__ = [
     'ProjectCreateController',
@@ -17,7 +19,7 @@ __all__ = [
     'ProjectUpdateController',
 ]
 
-ALLOWED_UPDATE_STATES = {4, 8}
+ALLOWED_UPDATE_STATES = {states.RUNNING, states.SCRUB}
 
 
 class ProjectListController(ControllerBase):
@@ -42,6 +44,7 @@ class ProjectListController(ControllerBase):
             'archived': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'closed': (),
             'created': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
+            'grace_period': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'manager_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'name': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
@@ -70,6 +73,7 @@ class ProjectCreateController(ControllerBase):
             'region_id',
             'name',
             'note',
+            'grace_period',
         )
 
     def __init__(self, request: Request, data: QueryDict, span: Optional[Span]) -> None:
@@ -126,10 +130,10 @@ class ProjectCreateController(ControllerBase):
                 self.instance.delete()
                 return {'errors': asn_controller.errors}
 
-        with tracer.start_span('saving_project_asn', child_of=span) as child_span:
+        with tracer.start_span('saving_project_asn', child_of=span):
             asn_controller.instance.save()
 
-        with tracer.start_span('creating_pseudo_allocations', child_of=span) as child_span:
+        with tracer.start_span('creating_pseudo_allocations', child_of=span):
             # Create the private allocations for the ASN in question.
             Allocation.create_pseudo(self.request, asn_controller.instance)
 
@@ -202,6 +206,25 @@ class ProjectCreateController(ControllerBase):
         self.cleaned_data['note'] = str(note).strip() if note else ''
         return None
 
+    def validate_grace_period(self, grace_period: Optional[int]) -> Optional[str]:
+        """
+        description: |
+            The grace_period field represents the number of hours to keep customer requested deleted
+            infrastructure before scrubbing from the system. The default value is 168(24 x 7).
+        type: integer
+        required: false
+        """
+        if grace_period is None:
+            grace_period = 168
+        try:
+            grace_period = int(grace_period)
+            if grace_period < 0:
+                return 'iaas_project_create_108'
+        except (ValueError, TypeError):
+            return 'iaas_project_create_109'
+        self.cleaned_data['grace_period'] = grace_period
+        return None
+
 
 class ProjectUpdateController(ControllerBase):
     """
@@ -219,6 +242,7 @@ class ProjectUpdateController(ControllerBase):
             'name',
             'note',
             'state',
+            'grace_period',
         )
 
     def validate_name(self, name: Optional[str]) -> Optional[str]:
@@ -272,7 +296,7 @@ class ProjectUpdateController(ControllerBase):
         if state is None:
             return None
 
-        if self._instance.min_state < 4:
+        if self._instance.min_state < states.RUNNING:
             return 'iaas_project_update_104'
 
         try:
@@ -286,11 +310,38 @@ class ProjectUpdateController(ControllerBase):
         if not self._instance.stable:
             return 'iaas_project_update_107'
 
-        if state == 8 and self._instance.shut_down:
-            return 'iaas_project_update_108'
+        if state == states.SCRUB:
+            if self._instance.shut_down:
+                return 'iaas_project_update_108'
+            # If any VMs in the Project have GPUs attached or active Snapshots, cannot Scrub
+            vms = self._instance.vms.exclude(state=states.CLOSED)
+            if vms.filter(gpu__gt=0).exists():
+                return 'iaas_project_update_109'
+            if vms.filter(snapshots__state__lt=states.CLOSED).exists():
+                return 'iaas_project_update_110'
 
-        if state == 4 and not self._instance.shut_down:
-            return 'iaas_project_update_109'
+        if state == states.RUNNING and not self._instance.shut_down:
+            return 'iaas_project_update_111'
 
         self.cleaned_data['state'] = state
+        return None
+
+    def validate_grace_period(self, grace_period: Optional[int]) -> Optional[str]:
+        """
+        description: |
+             The grace_period field represents the number of hours to keep customer requested deleted
+             infrastructure before scrubbing from the system. The default value is 168 hours(24 x 7).
+        type: integer
+        required: false
+        """
+        if grace_period is None:
+            grace_period = self._instance.grace_period
+        else:
+            try:
+                grace_period = int(grace_period)
+                if grace_period < 0:
+                    return 'iaas_project_update_112'
+            except (ValueError, TypeError):
+                return 'iaas_project_update_113'
+        self.cleaned_data['grace_period'] = grace_period
         return None

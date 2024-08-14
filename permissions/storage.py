@@ -38,30 +38,13 @@ class Permissions:
         """
         The request to create a Storage object is valid if;
         - The requesting User owns the VM
+        - The requesting user is public
         """
         if request.user.address['id'] != obj.project.address_id:
             return Http403(error_code='iaas_storage_create_201')
-
-        return None
-
-    @staticmethod
-    def head(request: Request, obj: VM, span: Span) -> Optional[Http403]:
-        """
-        The request to access a storage is valid if;
-        - The requesting User owns the VM
-        - The requesting user is global active and the VM belongs to an Address in their Member
-        """
-        if request.user.id == 1:  # pragma: no cover
-            return None
-        if request.user.robot:
-            if request.user.address['id'] != obj.project.region_id:
-                return Http403()
-        elif request.user.address['id'] != obj.project.address_id:
-            if request.user.is_global and request.user.global_active:
-                if obj.project.address_id not in get_addresses_in_member(request, span):
-                    return Http403()
-            else:
-                return Http403()
+        # The requesting user is public
+        if request.user.is_private:
+            return Http403(error_code='iaas_storage_create_202')
         return None
 
     @staticmethod
@@ -82,5 +65,4 @@ class Permissions:
                     return Http403(error_code='iaas_storage_read_202')
             else:
                 return Http403(error_code='iaas_storage_read_203')
-
         return None

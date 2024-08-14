@@ -79,7 +79,6 @@ def get_free_ip_in_router(region_subnets: List[Subnet], ip_error: str, span: Spa
     subnet = [sub for sub in region_subnets if sub.address_range == str(network)]
     return {
         'address': str(ip),
-        'cloud': True,
         'subnet_id': subnet[0].pk,
         'name': 'Floating IP',
     }
@@ -102,7 +101,6 @@ def create_cloud_subnets(
     project_ids = Project.objects.filter(region_id=project.region_id).values_list('pk', flat=True)
     existing = set(Subnet.objects.filter(
         allocation__asn__number__in=[(id + ASN.pseudo_asn_offset) for id in project_ids],
-        cloud=True,
         vlan__gte=vlan_range[0],
         vlan__lte=vlan_range[-1],
     ).distinct().values_list('vlan', flat=True))
@@ -120,7 +118,6 @@ def create_cloud_subnets(
     for subnet in subnets:
         # Find a vlan for this Subnet from the available vlans in this region.
         subnet.vlan = free[index]
-        subnet.cloud = True
         subnet.modified_by = request.user.id
         subnet.virtual_router_id = project.virtual_router.pk
         subnet.save()
@@ -130,7 +127,7 @@ def create_cloud_subnets(
     return subnets
 
 
-def get_stif_number(request: Request, router: Router, stif_number_error: str) -> Optional[str]:
+def get_stif_number(router: Router, stif_number_error: str) -> Optional[str]:
     """
     Helper method to find an available stif number on a Router for a VPN
     """
@@ -156,7 +153,6 @@ def get_stif_number(request: Request, router: Router, stif_number_error: str) ->
 
 
 def get_available_dynamic_remote_subnets(
-    request: Request,
     region_id: int,
     dynanmic_remote_subnet_error: str,
     search_value: Optional[str] = None,
@@ -174,7 +170,7 @@ def get_available_dynamic_remote_subnets(
         vpn__virtual_router__state=state.CLOSED,
     ).values_list('remote_subnet', flat=True).iterator())
 
-    if bool(search_value):
+    if search_value is not None:
         dynamic_remote_subnets = [
             a for a in Route.DYNAMIC_REMOTE_SUBNET_LIST if (a not in existing and search_value in a)
         ]
@@ -186,3 +182,11 @@ def get_available_dynamic_remote_subnets(
         raise IAASException(dynanmic_remote_subnet_error)
 
     return dynamic_remote_subnets
+
+
+def get_ike_identifier(vpn: VPN) -> str:
+    """
+    Generates an FQDN using vpn's data
+    :return: string
+    """
+    return f'{vpn.id}-{vpn.virtual_router.project.region_id}.{settings.ORGANIZATION_URL}'

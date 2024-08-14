@@ -44,7 +44,7 @@ class AppSettingsCreateController(ControllerBase):
         except (TypeError, ValueError, netaddr.AddrFormatError):
             return 'iaas_app_settings_create_101'
 
-        if ip.is_private():
+        if ip.is_global() is False:
             return 'iaas_app_settings_create_102'
 
         self.cleaned_data['ipmi_host'] = str(ip)
@@ -145,7 +145,7 @@ class AppSettingsUpdateController(ControllerBase):
         except (TypeError, ValueError, netaddr.AddrFormatError):
             return 'iaas_app_settings_update_101'
 
-        if ip.is_private():
+        if ip.is_global() is False:
             return 'iaas_app_settings_update_102'
 
         self.cleaned_data['ipmi_host'] = str(ip)

@@ -7,7 +7,7 @@ iaas_policy_log_list_001 = (
 )
 iaas_policy_log_list_002 = 'Access to the Router to retrieve logs is not configured.'
 iaas_policy_log_list_003 = (
-    'A valid management subnet could not be retrieved. Please try again later or contact CloudCIX support if this '
+    'A /48 IPv6 Region Assignemnt could not be retrieved. Please try again later or contact CloudCIX support if this '
     'persists.'
 )
 iaas_policy_log_list_004 = (

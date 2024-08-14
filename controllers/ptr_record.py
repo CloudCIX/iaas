@@ -81,7 +81,7 @@ class PTRRecordCreateController(ControllerBase):
             ip = netaddr.IPAddress(ip_address)
         except (TypeError, ValueError, netaddr.AddrFormatError):
             return 'iaas_ptr_record_create_102'
-        if ip.is_private():
+        if ip.is_global() is False:
             return 'iaas_ptr_record_create_103'
         self.cleaned_data['ip_address'] = str(ip)
         return None

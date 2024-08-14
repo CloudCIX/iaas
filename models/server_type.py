@@ -15,7 +15,14 @@ class ServerType(BaseModel):
         - 1: HyperV Host
         - 2: KVM Host
         - 3: Phantom Host
+        - 4: GPU A100
     """
+    HYPERV = 1
+    KVM = 2
+    PHANTOM = 3
+    GPU_A100 = 4
+    GPU_H100 = 5
+
     name = models.CharField(max_length=50)
 
     class Meta:
@@ -29,6 +36,7 @@ class ServerType(BaseModel):
             models.Index(fields=['deleted'], name='server_type_deleted'),
             models.Index(fields=['name'], name='server_type_name'),
         ]
+        ordering = ['name']
 
     def get_absolute_url(self) -> str:
         """

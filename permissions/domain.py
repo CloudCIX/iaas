@@ -24,17 +24,6 @@ class Permissions:
         return None
 
     @staticmethod
-    def head(request: Request, domain: Domain) -> Optional[Http403]:
-        """
-        The request to access a Domain record is valid if:
-        - The Domain is owned by the User's Member.
-        """
-        if request.user.member['id'] not in [1, domain.member_id]:
-            return Http403()
-
-        return None
-
-    @staticmethod
     def read(request: Request, domain: Domain) -> Optional[Http403]:
         """
         The request to read a Domain record is valid if:

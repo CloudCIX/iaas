@@ -98,12 +98,11 @@ class Router(BaseModel):
         :return: management_ip (type: str).
         """
         management_ip = ''
-        # Filter router subnets for a non cloud subnet ending with '::/64' as the first /64 from the /48 will be the
-        # management subnet
+        # Filter router subnets for Region Assignment (a subnet ending with '/48)'
+        # The management subnet for a /48  is the first /64
         objs = self.router_subnets.filter(
-            children__address_id=self.region_id,
-            children__address_range__iendswith='::/64',
-            children__cloud=False,
+            address_id=self.region_id,
+            address_range__iendswith='/48',
         ).distinct()
 
         if objs.exists():
@@ -119,7 +118,7 @@ class Router(BaseModel):
         :return: virtual_routers_in_use (type: int)
         """
         capacity_available = 0
-        if bool(self.capacity):
-            capacity_available = self.capacity - self.virtual_routers.exclude(state__lt=state.CLOSED).count()
+        if self.capacity is not None:
+            capacity_available = self.capacity - self.virtual_routers.exclude(state=state.CLOSED).count()
 
         return capacity_available

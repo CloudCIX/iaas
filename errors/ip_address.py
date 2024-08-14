@@ -42,14 +42,22 @@ iaas_ip_address_read_002 = (
     'associated with more than one private IP Address record. Please contact CloudCIX support.'
 )
 iaas_ip_address_read_201 = (
-    'You do not have permission to read this Cloud IPAddress. Your Address must own the Region for the specified ASN '
-    'record.'
+    'You do not have permission to read this Cloud IPAddress. Robot can only read IPs from networks in it\'s region.'
 )
 iaas_ip_address_read_202 = (
-    'You do not have permission to read this Cloud IPAddress. Your Address must own the specified Subnet record.'
+    'You do not have permission to read this Cloud IPAddress. Robot can only read IPs for project networks in it\'s '
+    'regiom.'
 )
 iaas_ip_address_read_203 = (
-    'You do not have permission to read this IPAddress. Your Address must own the specified Subnet record.'
+    'You do not have permission to read this Cloud IPAddress. You can only read public IPs NATted to a VM in your '
+    'address.'
+)
+iaas_ip_address_read_204 = (
+    'You do not have permission to read this Cloud IPAddress. You can only read public IPs assigned to Virtual Routers '
+    'for Projects in your address.'
+)
+iaas_ip_address_read_205 = (
+    'You do not have permission to read this IPAddress. Your Address must own the IP Address Subnet record.'
 )
 
 # Update
@@ -78,19 +86,26 @@ iaas_ip_address_update_106 = (
     'The "credentials" parameter is invalid. "credentials" cannot be longer than 64 characters.'
 )
 iaas_ip_address_update_201 = (
-    'You do not have permission to update this IPAddress. Cloud IPs must be updated by updating the Cloud Resource it '
-    'is configured on.'
+    'You do not have permission to update this IPAddress. RFC1918 Project IPs must be updated by updating the Cloud '
+    'Resource it is configured on.'
 )
 iaas_ip_address_update_202 = (
-    'You do not have permission to read this IPAddress. Your Address must own the specified Subnet record.'
+    'You do not have permission to update this IPAddress. Your Address must own the IP Address Subnet record.'
 )
-
+iaas_ip_address_update_203 = (
+    'You do not have permission to update this IPAddress. The IP is assigned to a Virtaul Router or a VM in your '
+    'region.'
+)
 # Delete
 iaas_ip_address_delete_001 = 'The "ip" path parameter is invalid. "ip" must belong to a valid ip_address record.'
 iaas_ip_address_delete_201 = (
-    'You do not have permission to delete this IPAddress. Cloud IPs must be deleted by updating or deleting the Cloud '
-    'Resource it is configured on.'
+    'You do not have permission to delete this IPAddress. RFC1918 Project IPs must be deleted by updating or deleting '
+    'the Cloud Resource it is configured on.'
 )
 iaas_ip_address_delete_202 = (
     'You do not have permission to delete this IPAddress. Your Address must own the specified Subnet record.'
+)
+iaas_ip_address_delete_203 = (
+    'You do not have permission to delete this IPAddress. The IP is assigned to a Virtaul Router or a VM in your '
+    'region.'
 )

@@ -169,7 +169,7 @@ class InterfaceResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span):
-            error = Permissions.head(request, obj)
+            error = Permissions.read(request, obj)
             if error is not None:
                 return Http404()
 

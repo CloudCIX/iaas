@@ -40,4 +40,4 @@ put in place for change of mind period.
 At the end of the 7 day grace period, the Cloud platform will handle the deletion of the Project.
 """
 
-__version__ = '0.3.10'
+__version__ = '3.2.1'

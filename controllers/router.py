@@ -334,7 +334,7 @@ class RouterCreateController(ControllerBase):
             except (TypeError, ValueError, netaddr.AddrFormatError):
                 return 'iaas_router_create_126'
 
-            if address.is_private():
+            if address.is_global() is False:
                 return 'iaas_router_create_127'
 
             port_ip: Dict[str, Any] = {}
@@ -612,11 +612,9 @@ class RouterUpdateController(ControllerBase):
             return 'iaas_router_update_119'
 
         configured_subnets = Subnet.objects.filter(router=self._instance).values_list('pk', flat=True)
-
         remove_subnets = [sub for sub in configured_subnets if sub not in subnet_ids]
         add_subnets = [sub for sub in subnet_ids if sub not in configured_subnets]
         subnets = [sub for sub in subnet_ids if sub in configured_subnets]
-
         ipv6_subnet = False
         region_id = self._instance.region_id
 
@@ -629,14 +627,12 @@ class RouterUpdateController(ControllerBase):
             router_subnets.append(subnet)
 
         for subnet_id in remove_subnets:
-            # Ensure there are no cloud child subnets
-            if Subnet.objects.filter(parent_id=subnet_id, cloud=True).exists():
+            # Ensure there are no child subnets
+            if Subnet.objects.filter(parent_id=subnet_id).exists():
                 return 'iaas_router_update_120'
             # Ensure there are no cloud ip addresses in use
-            if IPAddress.objects.filter(subnet_id=subnet_id, cloud=True).exists():
+            if IPAddress.objects.filter(subnet_id=subnet_id).exists():
                 return 'iaas_router_update_121'
-            subnet = Subnet.objects.get(pk=int(subnet_id), address_id=region_id)
-            network = netaddr.IPNetwork(subnet.address_range)
 
         for subnet_id in add_subnets:
             try:
@@ -698,7 +694,7 @@ class RouterUpdateController(ControllerBase):
             except (TypeError, ValueError, netaddr.AddrFormatError):
                 return 'iaas_router_update_128'
 
-            if address.is_private():
+            if address.is_global() is False:
                 return 'iaas_router_update_129'
 
             port_ip: Dict[str, Any] = {}

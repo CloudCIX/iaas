@@ -32,6 +32,7 @@ class Storage(BaseModel):
             models.Index(fields=['name'], name='storage_name'),
             models.Index(fields=['primary'], name='storage_primary'),
         ]
+        ordering = ['-primary', 'name']
 
     def get_absolute_url(self) -> str:
         """

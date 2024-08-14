@@ -255,7 +255,7 @@ class IPValidatorController(ControllerBase):
             info: Dict[str, Any] = {
                 'ipv4': ip_address.version == 4,
                 'ipv6': ip_address.version == 6,
-                'is_private': ip_address.is_private(),
+                'is_private': ip_address.is_global() is False,
                 'is_reserved': ip_address.is_reserved(),
                 'is_loopback': ip_address.is_loopback(),
                 'parent_network': None,

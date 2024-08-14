@@ -1,5 +1,5 @@
 # Libs specific to the iaas application
 junos-eznc
-netaddr
+netaddr==1.2.1
 ncclient
 sshpubkeys

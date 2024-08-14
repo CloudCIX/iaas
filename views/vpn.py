@@ -16,11 +16,11 @@ from rest_framework.response import Response
 # local
 from iaas import skus
 from iaas import state as states
-from iaas.controllers.helpers import get_stif_number, IAASException
-from iaas.models import Project, VirtualRouter, VPN, VPNHistory
+from iaas.controllers.helpers import get_stif_number, IAASException, get_ike_identifier
+from iaas.models import VirtualRouter, VPN, VPNHistory
 from iaas.permissions.vpn import Permissions
 from iaas.controllers import VPNCreateController, VPNListController, VPNUpdateController
-from iaas.serializers import VPNSerializer
+from iaas.serializers import BaseVPNSerializer, VPNSerializer
 from iaas.utils import get_addresses_in_member
 
 
@@ -96,7 +96,11 @@ class VPNCollection(APIView):
 
         with tracer.start_span('serializing_data', child_of=request.span) as span:
             span.set_tag('num_objects', objs.count())
-            data = VPNSerializer(instance=objs, many=True).data
+            include_related = request.GET.get('include_related', 'true').lower() in ['true']
+            if include_related:
+                data = VPNSerializer(instance=objs, many=True).data
+            else:
+                data = BaseVPNSerializer(instance=objs, many=True).data
 
         return Response({'content': data, '_metadata': metadata})
 
@@ -118,6 +122,11 @@ class VPNCollection(APIView):
         """
         tracer = settings.TRACER
 
+        with tracer.start_span('checking_permissions', child_of=request.span):
+            err = Permissions.create(request)
+            if err is not None:
+                return err
+
         with tracer.start_span('validating_controller', child_of=request.span) as span:
             controller = VPNCreateController(data=request.data, request=request, span=span)
             if not controller.is_valid():
@@ -134,7 +143,6 @@ class VPNCollection(APIView):
         with tracer.start_span('get_stif_number', child_of=request.span):
             try:
                 stif_number = get_stif_number(
-                    self.request,
                     controller.instance.virtual_router.router,
                     'iaas_vpn_create_002',
                 )
@@ -146,6 +154,12 @@ class VPNCollection(APIView):
             controller.instance.send_email = True
 
         with tracer.start_span('saving_object', child_of=request.span):
+            controller.instance.save()
+
+        with tracer.start_span('generating_ike_identifiers', child_of=request.span):
+            identifier = get_ike_identifier(vpn=controller.instance)
+            controller.instance.ike_local_identifier = f'local-{identifier}'
+            controller.instance.ike_remote_identifier = f'remote-{identifier}'
             controller.instance.save()
 
         with tracer.start_span('saving_routes', child_of=request.span):
@@ -179,7 +193,7 @@ class VPNCollection(APIView):
         with tracer.start_span('update_virtual_router_and_project', child_of=request.span):
             virtual_router = controller.instance.virtual_router
             VirtualRouter.objects.filter(pk=virtual_router.pk).update(state=states.RUNNING_UPDATE)
-            Project.objects.filter(pk=virtual_router.project.pk).update(run_robot=True, run_icarus=True)
+            virtual_router.project.set_run_robot_flags()
 
         with tracer.start_span('serializing_data', child_of=request.span) as span:
             data = VPNSerializer(instance=controller.instance).data
@@ -218,7 +232,7 @@ class VPNResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span) as span:
-            error = Permissions.head(request, obj, span)
+            error = Permissions.read(request, obj, span)
             if error is not None:
                 return Http404()
 
@@ -370,9 +384,9 @@ class VPNResource(APIView):
 
         with tracer.start_span('update_virtual_router_and_project', child_of=request.span):
             if not request.user.robot:
-                virtual_router = obj.virtual_router
-                VirtualRouter.objects.filter(pk=virtual_router.pk).update(state=states.RUNNING_UPDATE)
-                Project.objects.filter(pk=virtual_router.project.pk).update(run_robot=True, run_icarus=True)
+                obj.virtual_router.state = states.RUNNING_UPDATE
+                obj.virtual_router.save()
+                obj.virtual_router.project.set_run_robot_flags()
 
         with tracer.start_span('serializing_data', child_of=request.span) as span:
             data = VPNSerializer(instance=controller.instance).data
@@ -444,8 +458,8 @@ class VPNResource(APIView):
             )
 
         with tracer.start_span('update_virtual_router_and_project', child_of=request.span):
-            virtual_router = obj.virtual_router
-            VirtualRouter.objects.filter(pk=virtual_router.pk).update(state=states.RUNNING_UPDATE)
-            Project.objects.filter(pk=virtual_router.project.pk).update(run_robot=True, run_icarus=True)
+            obj.virtual_router.state = states.RUNNING_UPDATE
+            obj.virtual_router.save()
+            obj.virtual_router.project.set_run_robot_flags()
 
         return Response(status=status.HTTP_204_NO_CONTENT)

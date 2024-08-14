@@ -72,7 +72,6 @@ class DynamicRemoteSubnetResource(APIView):
         with tracer.start_span('get_available_dynamic_remote_subnets', child_of=request.span):
             try:
                 dynamic_remote_subnets = get_available_dynamic_remote_subnets(
-                    request=self.request,
                     region_id=region_id,
                     dynanmic_remote_subnet_error='iaas_dynamic_remote_subnet_read_002',
                     search_value=search_value,

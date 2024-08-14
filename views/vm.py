@@ -17,7 +17,6 @@ from rest_framework.response import Response
 from iaas import skus, state
 from iaas.models import (
     IPAddress,
-    Project,
     Server,
     StorageHistory,
     VM,
@@ -25,8 +24,8 @@ from iaas.models import (
 )
 from iaas.permissions.vm import Permissions
 from iaas.controllers import VMListController, VMCreateController, VMUpdateController
-from iaas.serializers import VMSerializer
-from iaas.utils import get_addresses_in_member
+from iaas.serializers import BaseVMSerializer, VMSerializer
+from iaas.utils import get_addresses_in_member, get_vm_interface_mac_address
 
 
 __all__ = [
@@ -99,7 +98,11 @@ class VMCollection(APIView):
 
         with tracer.start_span('serializing_data', child_of=request.span) as span:
             span.set_tag('num_objects', objs.count())
-            data = VMSerializer(instance=objs, many=True).data
+            include_related = request.GET.get('include_related', 'true').lower() in ['true']
+            if include_related:
+                data = VMSerializer(instance=objs, many=True).data
+            else:
+                data = BaseVMSerializer(instance=objs, many=True).data
 
         return Response({'content': data, '_metadata': metadata})
 
@@ -144,6 +147,11 @@ class VMCollection(APIView):
         """
         tracer = settings.TRACER
 
+        with tracer.start_span('checking_permissions', child_of=request.span):
+            err = Permissions.create(request)
+            if err is not None:
+                return err
+
         with tracer.start_span('validating_controller', child_of=request.span) as span:
             controller = VMCreateController(data=request.data, request=request, span=span)
             if not controller.is_valid():
@@ -157,13 +165,20 @@ class VMCollection(APIView):
 
         # Create IP Addresses for VM
         with tracer.start_span('saving_vm_ips', child_of=request.span):
+            # Only one IP from each subnet(interface) on a VM needs to assigned a mac_address
+            mac_address_subnets: List = []
+            region_id = controller.instance.project.region_id
+            server_type_id = controller.instance.server.type.id
             for ip in ip_addresses:
-                IPAddress.objects.create(
-                    cloud=True,
+                ip_address = IPAddress.objects.create(
                     vm=controller.instance,
                     modified_by=self.request.user.id,
                     **ip,
                 )
+                if ip['subnet'].pk not in mac_address_subnets:
+                    ip_address.mac_address = get_vm_interface_mac_address(region_id, server_type_id, ip_address.pk)
+                    ip_address.save()
+                    mac_address_subnets.append(ip['subnet'].pk)
 
         storage_history: List[Dict[str, Any]] = []
         with tracer.start_span('saving_storages', child_of=request.span):
@@ -205,8 +220,8 @@ class VMCollection(APIView):
             controller.instance.state = state.REQUESTED
             controller.instance.save()
 
-        with tracer.start_span('activate_run_robot', child_of=request.span):
-            Project.objects.filter(pk=controller.instance.project.pk).update(run_robot=True, run_icarus=True)
+        with tracer.start_span('setting_run_robot_flags', child_of=request.span):
+            controller.instance.project.set_run_robot_flags()
 
         with tracer.start_span('set_storage_type', child_of=request.span):
             controller.instance.refresh_from_db()
@@ -251,7 +266,7 @@ class VMResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span) as span:
-            error = Permissions.head(request, obj, span)
+            error = Permissions.read(request, obj, span)
             if error is not None:
                 return Http404()
 
@@ -411,8 +426,8 @@ class VMResource(APIView):
                 virtual_router.save()
 
         if not request.user.robot or controller.close_vm:
-            with tracer.start_span('activate_run_robot_and_run_icarus', child_of=request.span):
-                Project.objects.filter(pk=obj.project.pk).update(run_robot=True, run_icarus=True)
+            with tracer.start_span('setting_run_robot_flags', child_of=request.span):
+                obj.project.set_run_robot_flags()
 
         with tracer.start_span('set_storage_type', child_of=request.span):
             server = Server.objects.get(pk=obj.server_id)
@@ -424,7 +439,7 @@ class VMResource(APIView):
 
         return Response({'content': data})
 
-    def patch(self, request: Request, pk=int) -> Response:
+    def patch(self, request: Request, pk: int) -> Response:
         """
         Attempt to partially update a VM
         """

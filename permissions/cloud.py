@@ -24,11 +24,15 @@ class Permissions:
         """
         The request to use this method is valid if;
         - The requesting User's Address is self managed.
+        - The requesting user is public.
         """
         if request.user.robot:
             return Http403(error_code='iaas_cloud_create_201')
         if not request.user.member['self_managed']:
             return Http403(error_code='iaas_cloud_create_202')
+        # The requesting user is public
+        if request.user.is_private:
+            return Http403(error_code='iaas_cloud_create_203')
 
         return None
 
@@ -48,6 +52,7 @@ class Permissions:
                     return Http403(error_code='iaas_cloud_read_201')
             else:
                 return Http403(error_code='iaas_cloud_read_202')
+
         return None
 
     @staticmethod
@@ -55,10 +60,14 @@ class Permissions:
         """
         The request to use this method is valid if;
         - The requesting User's Address owns the Project.
+        - The requesting user is public.
         """
         if request.user.robot:
             return Http403(error_code='iaas_cloud_update_201')
-        if obj.address_id != request.user.address['id']:
+        elif obj.address_id != request.user.address['id']:
             return Http403(error_code='iaas_cloud_update_202')
+        # The requesting user is public
+        elif request.user.is_private:
+            return Http403(error_code='iaas_cloud_update_203')
 
         return None

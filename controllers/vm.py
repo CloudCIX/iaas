@@ -17,6 +17,7 @@ from . import helpers
 from .storage import StorageCreateController, StorageUpdateController
 from iaas.models import (
     ASN,
+    Device,
     Image,
     IPAddress,
     Project,
@@ -28,7 +29,6 @@ from iaas.models import (
     VirtualRouter,
     VM,
 )
-from iaas.services import cloud_init
 import iaas.skus as skus
 import iaas.state as states
 
@@ -39,8 +39,6 @@ __all__ = [
     'VMListController',
 ]
 
-CPU_RANGE = range(1, 25)
-RAM_RANGE = range(1, 129)
 WINDOWS_PRIMARY_DRIVE_MINIMUM = 32
 UPDATE_STATES = {states.RUNNING_UPDATE, states.QUIESCED_UPDATE}
 CLOUD_INIT_HEADERS = ['#!', '#include', '#cloud-config', '#upstart-job', '#cloud-boothook']
@@ -61,6 +59,7 @@ class VMListController(ControllerBase):
             'name',
             'project_id',
             'state',
+            'updated',
         )
         search_fields = {
             'created': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
@@ -72,6 +71,8 @@ class VMListController(ControllerBase):
             'project__name': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
             'project__region_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'server_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
+            'server__type_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
+            'server__type__name': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
             'state': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'updated': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
         }
@@ -127,7 +128,7 @@ class VMCreateController(ControllerBase):
         description: The ID of the User's Project into which this new VM should be added.
         type: integer
         """
-        if not project_id:
+        if project_id is None:
             return 'iaas_vm_create_101'
 
         try:
@@ -151,7 +152,7 @@ class VMCreateController(ControllerBase):
         description: The ID of the Image that will be used to build the VM.
         type: integer
         """
-        if not image_id:
+        if image_id is None:
             return 'iaas_vm_create_105'
 
         try:
@@ -190,7 +191,7 @@ class VMCreateController(ControllerBase):
             The ID of the StorageType that will be used in the VM
         type: integer
         """
-        if not storage_type_id:
+        if storage_type_id is None:
             return 'iaas_vm_create_109'
 
         try:
@@ -283,7 +284,7 @@ class VMCreateController(ControllerBase):
         minimum: 1
         maximum: 24
         """
-        if not cpu:
+        if cpu is None:
             return 'iaas_vm_create_117'
 
         try:
@@ -291,7 +292,7 @@ class VMCreateController(ControllerBase):
         except (ValueError, TypeError):
             return 'iaas_vm_create_118'
 
-        if cpu not in CPU_RANGE:
+        if cpu <= 0:
             return 'iaas_vm_create_119'
 
         self.vm_history['cpu_quantity'] = cpu
@@ -308,7 +309,7 @@ class VMCreateController(ControllerBase):
         minimum: 1
         maximum: 128
         """
-        if not ram:
+        if ram is None:
             return 'iaas_vm_create_120'
 
         try:
@@ -316,7 +317,7 @@ class VMCreateController(ControllerBase):
         except (ValueError, TypeError):
             return 'iaas_vm_create_121'
 
-        if ram not in RAM_RANGE:
+        if ram <= 0:
             return 'iaas_vm_create_122'
 
         self.vm_history['ram_quantity'] = ram
@@ -337,7 +338,7 @@ class VMCreateController(ControllerBase):
                 # If we're missing a key, return because we can't validate this.
                 return None
 
-        # Get all of the Servers of the required type in the region with the right storage type and are enabled
+        # Get all the Servers of the required type in the region with the right storage type and are enabled
         storage_type = self.cleaned_data.pop('storage_type')
         region_id = self.cleaned_data['project'].region_id
         servers = Server.objects.filter(
@@ -352,12 +353,12 @@ class VMCreateController(ControllerBase):
 
         # Find the best Server for this VM
         found_server = None
-        min_delta = float('inf')
+        max_suitability = float('-inf')
         for s in servers:
-            delta = s.get_consumption_delta(requirement_vector)
-            if delta < min_delta:
+            suitability = s.get_suitability(requirement_vector)
+            if suitability > max_suitability:
                 found_server = s
-                min_delta = delta
+                max_suitability = suitability
 
         if found_server is None:
             # Servers full? Let's send an email!
@@ -400,7 +401,7 @@ class VMCreateController(ControllerBase):
             A string containing IP Addresses, separated by commas, that represent the DNS servers that the VM will use.
         type: string
         """
-        if not dns:
+        if dns is None:
             return 'iaas_vm_create_124'
 
         servers = dns.split(',')
@@ -442,12 +443,12 @@ class VMCreateController(ControllerBase):
     def validate_public_key(self, public_key: Optional[str]) -> Optional[str]:
         """
         description: |
-            A public key that will added to the VM during build to enable ssh access from machine with corresponding
+            A public key that will be added to the VM during build to enable ssh access from machine with corresponding
             private key.
         type: string
         required: false
         """
-        if public_key:
+        if public_key is not None:
             try:
                 ssh = SSHKey(public_key, strict=True)
                 ssh.parse()
@@ -463,7 +464,7 @@ class VMCreateController(ControllerBase):
             subnet can be NATed to a public IP address.
         type: string
         """
-        if not gateway_subnet:
+        if gateway_subnet is None:
             gateway_subnet = ''
 
         try:
@@ -521,22 +522,6 @@ class VMCreateController(ControllerBase):
         if 'gateway_subnet' in self.cleaned_data:
             gateway_subnet = netaddr.IPNetwork(self.cleaned_data['gateway_subnet'].address_range)
 
-        if self.cleaned_data['image'].cloud_init:
-            # Try to generate an IP in the Metadata Subnet
-            tracer = settings.TRACER
-            with tracer.start_span('Generating metadata ip address', child_of=self.span) as span:
-                try:
-                    ip = cloud_init.get_metadata_ip(
-                        self.request,
-                        self.cleaned_data['project'],
-                        'iaas_vm_create_136',
-                        'iaas_vm_create_137',
-                        span,
-                    )
-                except helpers.IAASException as e:
-                    return e.args[0]
-                ip_addresses.append(ip)
-
         # Get a list of valid subnets on the projects virtual_router
         virtual_router = VirtualRouter.objects.get(project=self.cleaned_data['project'].pk)
 
@@ -552,10 +537,10 @@ class VMCreateController(ControllerBase):
             try:
                 address = netaddr.IPAddress(ip['address'])
             except (TypeError, ValueError, netaddr.AddrFormatError):
-                return 'iaas_vm_create_138'
+                return 'iaas_vm_create_136'
 
-            if not address.is_private():
-                return 'iaas_vm_create_139'
+            if address.is_ipv4_private_use() is False:
+                return 'iaas_vm_create_137'
 
             for subnet in subnets:
                 subnet_network = netaddr.IPNetwork(subnet.address_range)
@@ -567,26 +552,26 @@ class VMCreateController(ControllerBase):
                     subnet_network.broadcast,   # Broadcast Address
                     subnet_network.ip,          # Gateway Address
                 ]):
-                    return 'iaas_vm_create_140'
+                    return 'iaas_vm_create_138'
 
                 # Check that address does not overlap with another ip in subnet
                 existing = subnet.ip_addresses.values_list('address', flat=True)
 
                 existing = netaddr.IPSet(existing)
                 if address in existing:
-                    return 'iaas_vm_create_141'
+                    return 'iaas_vm_create_139'
 
                 ip['subnet'] = subnet
 
                 break
 
             if 'subnet' not in ip:
-                return 'iaas_vm_create_142'
+                return 'iaas_vm_create_140'
 
             # Check if IP is in gateway subnet and can be NATed
             if nat:
                 if gateway_subnet is None or ip['address'] not in gateway_subnet:
-                    return 'iaas_vm_create_143'
+                    return 'iaas_vm_create_141'
 
             # If any errors have occurred we are not going to create any fips
             if len(self._errors) > 0:
@@ -596,7 +581,7 @@ class VMCreateController(ControllerBase):
             if nat:
                 nat_quantity += 1
                 try:
-                    public_ip = helpers.create_public_ip(self.request, region_subnet, 'iaas_vm_create_144', self.span)
+                    public_ip = helpers.create_public_ip(self.request, region_subnet, 'iaas_vm_create_142', self.span)
                     ip['public_ip'] = public_ip
                     to_delete.append(public_ip)
                 except helpers.IAASException as e:  # pragma: no cover
@@ -616,7 +601,7 @@ class VMCreateController(ControllerBase):
             Cloud Init allows Mime Multi-part messages, or files that start with a given set of strings
         type: str
         """
-        if not userdata:
+        if userdata is None:
             return None
 
         # Check if the OS image supports Cloud Init
@@ -624,11 +609,11 @@ class VMCreateController(ControllerBase):
             return None
         image = self.cleaned_data['image']
         if not image.cloud_init:
-            return 'iaas_vm_create_145'
+            return 'iaas_vm_create_143'
 
         userdata = str(userdata).strip()
         if len(userdata) > self.get_field('userdata').max_length:
-            return 'iaas_vm_create_146'
+            return 'iaas_vm_create_144'
 
         valid = False
         for header in CLOUD_INIT_HEADERS:
@@ -639,7 +624,7 @@ class VMCreateController(ControllerBase):
         if not valid:
             # Check if it's a Mime Multi-part file
             if '\nMIME-Version: ' not in userdata:
-                return 'iaas_vm_create_147'
+                return 'iaas_vm_create_145'
 
         self.cleaned_data['userdata'] = userdata
         return None
@@ -667,6 +652,7 @@ class VMUpdateController(ControllerBase):
             'ram',
             'storages',
             'userdata',
+            'gpu',
         )
 
     @property
@@ -723,7 +709,7 @@ class VMUpdateController(ControllerBase):
             - SCRUB_QUEUE (9) -> QUIESCED (6), or RESTART (7)
         type: integer
         """
-        if not state:
+        if state is None:
             return None
 
         try:
@@ -753,13 +739,22 @@ class VMUpdateController(ControllerBase):
         if state not in available_states[self._instance.state]:
             return 'iaas_vm_update_107'
 
+        # If the requesteed state is the SCRUB VM, ensure
+        # 1. There are no GPUs attached
+        # 2. If any snapshots, they are all in a closed state
+        if state == states.SCRUB:
+            if self._instance.gpu > 0:
+                return 'iaas_vm_update_108'
+            if self._instance.snapshots.exclude(state=states.CLOSED).exists():
+                return 'iaas_vm_update_109'
+
         if state == states.CLOSED:
             self.close_vm = True
             if IPAddress.objects.filter(vm=self._instance.pk, public_ip_id__isnull=False).exists():
                 self.update_virtual_router = True
 
         if not self._instance.snapshots_stable():
-            return 'iaas_vm_update_108'
+            return 'iaas_vm_update_110'
 
         self._create_history()
 
@@ -779,10 +774,10 @@ class VMUpdateController(ControllerBase):
         ip_addresses = ip_addresses or []
 
         if not isinstance(ip_addresses, list):
-            return 'iaas_vm_update_109'
+            return 'iaas_vm_update_111'
 
         if len(ip_addresses) == 0:
-            return 'iaas_vm_update_110'
+            return 'iaas_vm_update_112'
 
         gateway_subnet = None
         if self._instance.gateway_subnet_id is not None:
@@ -817,13 +812,13 @@ class VMUpdateController(ControllerBase):
                     if nat and ip.public_ip is None:
                         if gateway_subnet is None or \
                                 a['address'] not in gateway_subnet:
-                            return 'iaas_vm_update_111'
+                            return 'iaas_vm_update_113'
                         # Update IP to be NATed and create Floating IP
                         try:
                             public_ip = helpers.create_public_ip(
                                 self.request,
                                 region_subnet,
-                                'iaas_vm_update_112',
+                                'iaas_vm_update_114',
                                 self.span,
                             )
                             to_delete.append(public_ip)
@@ -854,7 +849,7 @@ class VMUpdateController(ControllerBase):
 
                     break
             if not valid:
-                return 'iaas_vm_update_113'
+                return 'iaas_vm_update_115'
 
         if nat_quantity != current_nat_quantity:
             self._create_history()
@@ -878,10 +873,10 @@ class VMUpdateController(ControllerBase):
         try:
             cpu = int(cpu)
         except (ValueError, TypeError):
-            return 'iaas_vm_update_114'
+            return 'iaas_vm_update_116'
 
-        if cpu not in CPU_RANGE:
-            return 'iaas_vm_update_115'
+        if cpu <= 0:
+            return 'iaas_vm_update_117'
 
         # If we are not updating the state in the request, the current VM state should be quiesced
         # And then we update it to be quiesced update
@@ -895,19 +890,19 @@ class VMUpdateController(ControllerBase):
                 self.cleaned_data['state'] = states.QUIESCED_UPDATE
                 self.vm_history['state'] = states.QUIESCED_UPDATE
             else:
-                return 'iaas_vm_update_116'
+                return 'iaas_vm_update_118'
 
         else:
             # Check that the requested state change will be running / quiesced update states
             if self.cleaned_data['state'] not in UPDATE_STATES:
-                return 'iaas_vm_update_117'
+                return 'iaas_vm_update_119'
 
         # Lastly, check that the VM's server has the space for the cpu update
         if cpu > self._instance.cpu:
             diff = cpu - self._instance.cpu
             srv = self._instance.server
             if diff > (srv.vcpus_for_update - srv.vcpus_in_use):
-                return 'iaas_vm_update_118'
+                return 'iaas_vm_update_120'
 
         self.vm_history['cpu_quantity'] = cpu
         self.vm_history['cpu_sku'] = skus.VCPU_001
@@ -930,10 +925,10 @@ class VMUpdateController(ControllerBase):
         try:
             ram = int(ram)
         except (ValueError, TypeError):
-            return 'iaas_vm_update_119'
+            return 'iaas_vm_update_121'
 
-        if ram not in RAM_RANGE:
-            return 'iaas_vm_update_120'
+        if ram <= 0:
+            return 'iaas_vm_update_122'
 
         # If we are not updating the state in the request, the current VM state should be quiesced
         # And then we update it to be quiesced update
@@ -946,19 +941,19 @@ class VMUpdateController(ControllerBase):
                 self.cleaned_data['state'] = states.QUIESCED_UPDATE
                 self.vm_history['state'] = states.QUIESCED_UPDATE
             else:
-                return 'iaas_vm_update_121'
+                return 'iaas_vm_update_123'
 
         else:
             # Check that the requested state change will be running / quiesced update states
             if self.cleaned_data['state'] not in UPDATE_STATES:
-                return 'iaas_vm_update_122'
+                return 'iaas_vm_update_124'
 
         # Lastly, check that the VM's server has the space for the ram update
         if ram > self._instance.ram:
             diff = ram - self._instance.ram
             srv = self._instance.server
             if diff > (srv.ram_for_update - srv.ram_in_use):
-                return 'iaas_vm_update_123'
+                return 'iaas_vm_update_125'
 
         self.vm_history['ram_quantity'] = ram
         self.vm_history['ram_sku'] = skus.RAM_001
@@ -979,7 +974,7 @@ class VMUpdateController(ControllerBase):
         """
         storages = storages or []
         if not isinstance(storages, list):
-            return 'iaas_vm_update_124'
+            return 'iaas_vm_update_126'
 
         if len(storages) == 0:
             return None
@@ -994,8 +989,8 @@ class VMUpdateController(ControllerBase):
 
         for index, storage in enumerate(storages):
             if not isinstance(storage, dict):
-                details = get_error_details('iaas_vm_update_125')
-                errors[index] = details['iaas_vm_update_125']
+                details = get_error_details('iaas_vm_update_127')
+                errors[index] = details['iaas_vm_update_127']
                 continue
 
             # Determine whether we are creating or updating
@@ -1010,8 +1005,8 @@ class VMUpdateController(ControllerBase):
                         continue
                     size_increase += controller.instance.gb
                     if controller.cleaned_data.get('primary', False):
-                        details = get_error_details('iaas_vm_update_126')
-                        errors[index] = details['iaas_vm_update_126']
+                        details = get_error_details('iaas_vm_update_128')
+                        errors[index] = details['iaas_vm_update_128']
                         continue
             else:
                 with tracer.start_span(f'_update_storage_{index}', child_of=self.span) as span:
@@ -1020,8 +1015,8 @@ class VMUpdateController(ControllerBase):
                         try:
                             obj = Storage.objects.get(pk=storage_id)
                         except Storage.DoesNotExist:
-                            details = get_error_details('iaas_vm_update_127')
-                            errors[index] = details['iaas_vm_update_127']
+                            details = get_error_details('iaas_vm_update_129')
+                            errors[index] = details['iaas_vm_update_129']
                             continue
 
                     controller = StorageUpdateController(instance=obj, data=storage, request=self.request, span=span)
@@ -1043,7 +1038,7 @@ class VMUpdateController(ControllerBase):
         if size_increase > 0:
             srv = self._instance.server
             if size_increase > (srv.gb_for_update - srv.gb_in_use):
-                return 'iaas_vm_update_128'
+                return 'iaas_vm_update_130'
             # If we are not updating the state in the request, running or quiesced the current VM state should be to
             # be able to modify storages
             if 'state' not in self.cleaned_data:
@@ -1055,11 +1050,11 @@ class VMUpdateController(ControllerBase):
                     self.cleaned_data['state'] = states.QUIESCED_UPDATE
                     self.vm_history['state'] = states.QUIESCED_UPDATE
                 else:
-                    return 'iaas_vm_update_129'
+                    return 'iaas_vm_update_131'
             else:
                 # Check that the requested state change will be running / quiesced update states
                 if self.cleaned_data['state'] not in UPDATE_STATES:
-                    return 'iaas_vm_update_130'
+                    return 'iaas_vm_update_132'
 
         # Check if any storage item had an error, if so we want to store the errors
         if any(item is not None for item in errors):
@@ -1078,17 +1073,17 @@ class VMUpdateController(ControllerBase):
             Cloud Init allows Mime Multi-part messages, or files that start with a given set of strings
         type: str
         """
-        if not userdata:
+        if userdata is None:
             return None
 
         # Check if the OS image supports Cloud Init
         image = self._instance.image
         if not image.cloud_init:
-            return 'iaas_vm_update_131'
+            return 'iaas_vm_update_133'
 
         userdata = str(userdata).strip()
         if len(userdata) > self.get_field('userdata').max_length:
-            return 'iaas_vm_update_132'
+            return 'iaas_vm_update_134'
 
         valid = False
         for header in CLOUD_INIT_HEADERS:
@@ -1099,9 +1094,68 @@ class VMUpdateController(ControllerBase):
         if not valid:
             # Check if it's a Mime Multi-part file
             if '\nMIME-Version: ' not in userdata:
-                return 'iaas_vm_update_133'
+                return 'iaas_vm_update_135'
 
         self.cleaned_data['userdata'] = userdata
+        return None
+
+    def validate_gpu(self, gpu: Optional[int]) -> Optional[str]:
+        """
+        description: |
+            The number of GPUs to have attached to the VM
+        type: integer
+        """
+        if gpu is None or gpu == self._instance.gpu:
+            return None
+
+        try:
+            gpu = int(gpu)
+        except (ValueError, TypeError):
+            return 'iaas_vm_update_136'
+
+        if len(Device.objects.filter(server=self._instance.server, device_type__sku__icontains='GPU')) == 0:
+            return 'iaas_vm_update_137'
+
+        if 'state' not in self.cleaned_data:
+            self._create_history()
+            if self._instance.state == states.RUNNING:
+                self.cleaned_data['state'] = states.RUNNING_UPDATE
+                self.vm_history['state'] = states.RUNNING_UPDATE
+            elif self._instance.state == states.QUIESCED:
+                self.cleaned_data['state'] = states.QUIESCED_UPDATE
+                self.vm_history['state'] = states.QUIESCED_UPDATE
+            else:
+                return 'iaas_vm_update_138'
+        else:
+            if self.cleaned_data['state'] not in UPDATE_STATES:
+                return 'iaas_vm_update_139'
+
+        if gpu > self._instance.gpu:
+            # Attach GPUs to VM, check server has capacity
+            available_devices = Device.objects.filter(vm_id__isnull=True, server=self._instance.server)
+            gpu_increase = gpu - self._instance.gpu
+            if gpu_increase > len(available_devices):
+                return 'iaas_vm_update_140'
+            # If any errors have occurred we are not going to assign vm to devices. This is the reason for it being
+            # validated last
+            if len(self._errors) > 0:
+                return None
+            assigned = 0
+            while assigned < gpu_increase:
+                available_devices[assigned].vm_id = self._instance.pk
+                available_devices[assigned].save()
+                assigned += 1
+
+        gpu_sku = Device.objects.filter(
+            server=self._instance.server,
+            device_type__sku__icontains='GPU',
+        )[0].device_type.sku
+
+        self.vm_history['gpu_quantity'] = gpu
+        self.vm_history['gpu_sku'] = gpu_sku
+
+        self.cleaned_data['gpu'] = gpu
+
         return None
 
     def _create_history(self):

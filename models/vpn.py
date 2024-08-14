@@ -37,23 +37,19 @@ class VPN(BaseModel, BillableModelMixin):
     """
     # Choices
     # Authentication algorithms
-    MD5 = 'md5'
     SHA1 = 'sha1'
     SHA256 = 'sha-256'
     SHA384 = 'sha-384'
-    HMAC_MD5 = 'hmac-md5-96'
     HMAC_SHA1 = 'hmac-sha1-96'
-    HMAC_SHA384 = 'hmac-sha-256-128'
+    HMAC_SHA256 = 'hmac-sha-256-128'
     IKE_AUTHENTICATION_ALGORITHMS = {
-        MD5,
         SHA1,
         SHA256,
         SHA384,
     }
     IPSEC_AUTHENTICATION_ALGORITHMS = {
-        HMAC_MD5,
         HMAC_SHA1,
-        HMAC_SHA384,
+        HMAC_SHA256,
     }
 
     # Diffie Helmen Groups
@@ -76,8 +72,6 @@ class VPN(BaseModel, BillableModelMixin):
     AES128 = 'aes-128-cbc'
     AES192 = 'aes-192-cbc'
     AES256 = 'aes-256-cbc'
-    DES = 'des-cbc'
-    DES3 = '3des-cbc'
     AES128G = 'aes-128-gcm'
     AES192G = 'aes-192-gcm'
     AES256G = 'aes-256-gcm'
@@ -85,15 +79,11 @@ class VPN(BaseModel, BillableModelMixin):
         AES128,
         AES192,
         AES256,
-        DES,
-        DES3,
     }
     IPSEC_ENCRYPTION_ALGORITHMS = {
         AES128,
         AES192,
         AES256,
-        DES,
-        DES3,
         AES128G,
         AES192G,
         AES256G,
@@ -105,14 +95,6 @@ class VPN(BaseModel, BillableModelMixin):
     ESTABLISH_TIMES = (
         (ESTABLISH_IMMEDIATELY, ESTABLISH_IMMEDIATELY),
         (ESTABLISH_ON_TRAFFIC, ESTABLISH_ON_TRAFFIC),
-    )
-
-    # Ike Modes
-    MAIN_MODE = 'main'
-    AGGRESSIVE_MODE = 'aggressive'
-    MODES = (
-        (MAIN_MODE, MAIN_MODE),
-        (AGGRESSIVE_MODE, AGGRESSIVE_MODE),
     )
 
     # PFS Groups
@@ -183,9 +165,10 @@ class VPN(BaseModel, BillableModelMixin):
     # either an ip or a valid hostname, based on the value of ike_gateway_value
     ike_gateway_value = models.TextField(default='')
     ike_lifetime = models.IntegerField(default=28800)
-    ike_mode = models.CharField(max_length=10, choices=MODES)
+    ike_local_identifier = models.CharField(max_length=253, null=True)
     ike_pre_shared_key = models.CharField(max_length=255)
     ike_public_ip = models.GenericIPAddressField(null=True)
+    ike_remote_identifier = models.CharField(max_length=253, null=True)
     ike_version = models.CharField(max_length=8, choices=VERSIONS)
 
     # IPSec Fields
@@ -208,6 +191,7 @@ class VPN(BaseModel, BillableModelMixin):
             models.Index(fields=['deleted'], name='vpn_deleted'),
             models.Index(fields=['ike_public_ip'], name='vpn_ike_public_io'),
         ]
+        ordering = ['description']
 
     def get_absolute_url(self) -> str:
         """

@@ -40,19 +40,6 @@ class Permissions:
         return None
 
     @staticmethod
-    def head(request: Request, server: Server) -> Optional[Http403]:
-        """
-        The request to access a Server is valid if:
-        - Server's region is requesting users address
-        """
-        if request.user.id == 1:  # pragma: no cover
-            return None
-        if server.region_id != request.user.address['id']:
-            return Http403()
-
-        return None
-
-    @staticmethod
     def read(request: Request, server: Server) -> Optional[Http403]:
         """
         The request to read a Server is valid if:

@@ -17,7 +17,7 @@ from iaas.controllers import VirtualRouterListController, VirtualRouterUpdateCon
 from iaas.controllers.helpers import create_cloud_subnets, IAASException
 from iaas.models import Project, Subnet, VirtualRouter
 from iaas.permissions.virtual_router import Permissions
-from iaas.serializers import VirtualRouterSerializer
+from iaas.serializers import BaseVirtualRouterSerializer, VirtualRouterSerializer
 from iaas.utils import get_addresses_in_member
 
 
@@ -103,7 +103,11 @@ class VirtualRouterCollection(APIView):
         # Serialise data.
         with tracer.start_span('serializing_data', child_of=request.span) as span:
             span.set_tag('num_objects', objs.count())
-            data = VirtualRouterSerializer(instance=objs, many=True).data
+            include_related = request.GET.get('include_related', 'true').lower() in ['true']
+            if include_related:
+                data = VirtualRouterSerializer(instance=objs, many=True).data
+            else:
+                data = BaseVirtualRouterSerializer(instance=objs, many=True).data
 
         return Response({'content': data, '_metadata': metadata})
 
@@ -140,7 +144,7 @@ class VirtualRouterResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span) as span:
-            error = Permissions.head(request, obj, span)
+            error = Permissions.read(request, obj, span)
             if error is not None:
                 return Http404()
 
@@ -273,8 +277,8 @@ class VirtualRouterResource(APIView):
                 Project.objects.filter(pk=obj.project.pk).update(run_icarus=True)
 
         if not request.user.robot or controller.scrub_virtual_router:
-            with tracer.start_span('activate_run_robot_and_run_icarus', child_of=request.span):
-                Project.objects.filter(pk=obj.project.pk).update(run_robot=True, run_icarus=True)
+            with tracer.start_span('setting_run_robot_flags', child_of=request.span):
+                obj.project.set_run_robot_flags()
 
         # Serialise and return the data.
         with tracer.start_span('serializing_data', child_of=request.span):

@@ -43,6 +43,7 @@ class StorageType(BaseModel):
             models.Index(fields=['deleted'], name='storage_type_deleted'),
             models.Index(fields=['name'], name='storage_type_name'),
         ]
+        ordering = ['name']
 
     def get_absolute_url(self) -> str:
         """

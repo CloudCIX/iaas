@@ -54,3 +54,4 @@ class Route(BaseModel):
             # Indexing everything in the `search_fields` map in List Controller
             models.Index(fields=['id'], name='route_id'),
         ]
+        ordering = ['remote_subnet']

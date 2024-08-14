@@ -7,7 +7,7 @@ iaas_vpn_status_read_001 = (
 )
 iaas_vpn_status_read_002 = 'Access to the Router to retrieve VPN status is not configured.'
 iaas_vpn_status_read_003 = (
-    'A valid management subnet could not be retrieved. Please try again later or contact CloudCIX support if this '
+    'A /48 IPv6 Region Assignemnt could not be retrieved. Please try again later or contact CloudCIX support if this '
     'persists.'
 )
 iaas_vpn_status_read_004 = (

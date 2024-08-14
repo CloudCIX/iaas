@@ -47,7 +47,7 @@ class VPNClientCreateController(ControllerBase):
                        existing VPN.
         """
         super(VPNClientCreateController, self).__init__(request=request, data=data, span=span)
-        if bool(vpn_id):
+        if vpn_id is not None:
             self.cleaned_data['vpn_id'] = vpn_id
 
     def validate_password(self, password: Optional[str]) -> Optional[str]:

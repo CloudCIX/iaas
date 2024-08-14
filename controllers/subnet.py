@@ -44,6 +44,7 @@ class SubnetListController(ControllerBase):
             'gateway': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'allocation__asn__member_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
+            'allocation__asn__number': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'name': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
             'parent_id': ('in', 'isnull'),
             'updated': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
@@ -362,7 +363,7 @@ class SubnetUpdateController(ControllerBase):
             self.cleaned_data['address_id'] = address_id
             return None
 
-        if self._instance.cloud:  # pragma: no cover
+        if self._instance.from_project_network:  # pragma: no cover
             return 'iaas_subnet_update_103'
 
         # If the sent Address ID is the User's Address, return now
@@ -391,7 +392,7 @@ class SubnetUpdateController(ControllerBase):
         if parent_id is None:
             return None
 
-        if self._instance.cloud:  # pragma: no cover
+        if self._instance.from_project_network:  # pragma: no cover
             return 'iaas_subnet_update_105'
 
         # Ensure parent_id is a valid integer.
@@ -538,7 +539,7 @@ class SubnetUpdateController(ControllerBase):
         if vlan == self._instance.vlan:  # pragma: no cover
             return None
 
-        if self._instance.cloud:  # pragma: no cover
+        if self._instance.from_project_network:  # pragma: no cover
             return 'iaas_subnet_update_121'
 
         # Ensure it's within the allowed range.
@@ -569,7 +570,7 @@ class SubnetUpdateController(ControllerBase):
         if vxlan == self._instance.vxlan:
             return None
 
-        if self._instance.cloud:  # pragma: no cover
+        if self._instance.from_project_network:  # pragma: no cover
             return 'iaas_subnet_update_124'
 
         # Ensure it's within the allowed range.

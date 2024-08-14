@@ -90,13 +90,6 @@ class CloudCollection(APIView):
                                     items:
                                       $ref: '#/components/schemas/Error'
                                       nullable: true
-                              vpns:
-                                oneOf:
-                                  - $ref: '#/components/schemas/Error'
-                                  - type: array
-                                    items:
-                                      $ref: '#/components/schemas/Error'
-                                      nullable: true
                               firewall_rules:
                                 oneOf:
                                   - $ref: '#/components/schemas/Error'
@@ -183,15 +176,11 @@ class CloudResource(APIView):
                 server = Server.objects.get(pk=vm.server_id)
                 vm.storage_type = server.storage_type.name
 
-        with tracer.start_span('fetching_vpns', child_of=request.span):
-            vpns = virtual_router.vpn_tunnels.all()
-
         with tracer.start_span('serializing_data', child_of=request.span):
             obj_data = {
                 'project': project,
                 'virtual_router': virtual_router,
                 'vms': vms,
-                'vpns': vpns,
             }
             obj = type('cloud', (object,), obj_data)
             data = CloudSerializer(obj).data
@@ -264,13 +253,6 @@ class CloudResource(APIView):
                                       $ref: '#/components/schemas/Error'
                                       nullable: true
                               vms:
-                                oneOf:
-                                  - $ref: '#/components/schemas/Error'
-                                  - type: array
-                                    items:
-                                      $ref: '#/components/schemas/Error'
-                                      nullable: true
-                              vpns:
                                 oneOf:
                                   - $ref: '#/components/schemas/Error'
                                   - type: array

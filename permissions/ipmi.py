@@ -26,18 +26,6 @@ class Permissions:
         return None
 
     @staticmethod
-    def head(request: Request, obj: IPMI) -> Optional[Http403]:
-        """
-        The request to access a IMPI record is valid if:
-        - The requesting User is from Member 1.
-        - The requesting User is from the Address that owns the Subnet that the IPMI customer_ip belongs to.
-        """
-
-        if request.user.member['id'] != 1 and obj.customer_ip.subnet.address_id != request.user.address['id']:
-            return Http403()
-        return None
-
-    @staticmethod
     def read(request: Request, obj: IPMI) -> Optional[Http403]:
         """
         The request to read a IMPI record is valid if:

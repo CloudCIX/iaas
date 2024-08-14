@@ -4,7 +4,6 @@ Errors for Run Robot services
 
 # List
 iaas_run_robot_list_201 = 'You do not have permission to make this request. Only Robot can execute this request.'
-
 # Turn Off
 iaas_run_robot_turn_off_101 = 'The "project_ids" parameter is invalid. The "project_ids" parameter must be a list.'
 iaas_run_robot_turn_off_102 = 'The "project_ids" parameter is invalid. The "project_ids" cannot be an empty list.'

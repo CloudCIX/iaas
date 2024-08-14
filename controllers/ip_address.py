@@ -31,7 +31,6 @@ class IPAddressListController(ControllerBase):
 
         search_fields = {
             'address': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
-            'cloud': (),
             'created': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'name': ControllerBase.DEFAULT_STRING_FILTER_OPERATORS,
@@ -40,7 +39,8 @@ class IPAddressListController(ControllerBase):
             'scan': (),
             'subnet_id': ('in', ),
             'subnet__address_id': ('in',),
-            'subnet__allocation__asn__member_id': (),
+            'subnet__allocation__asn__member_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
+            'subnet__allocation__asn__number': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'subnet__virtual_router': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'subnet__vlan': ('in',),
             'updated': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
@@ -103,7 +103,7 @@ class IPAddressCreateController(ControllerBase):
             ip_address = netaddr.IPAddress(address)
         except (TypeError, ValueError, netaddr.AddrFormatError):
             return 'iaas_ip_address_create_105'
-        self.is_private = ip_address.is_private()
+        self.is_private = ip_address.is_global() is False
 
         network = netaddr.IPNetwork(subnet.address_range)
         if ip_address not in network:

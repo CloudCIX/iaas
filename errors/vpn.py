@@ -46,19 +46,10 @@ iaas_vpn_create_111 = 'The "ike_lifetime" parameter is invalid. "ike_lifetime" m
 iaas_vpn_create_112 = (
     'The "ike_lifetime" parameter is invalid. "ike_lifetime" must be in the range of 180 - 86400 inclusive.'
 )
-iaas_vpn_create_113 = 'The "ike_mode" parameter is invalid. The supplied "ike_mode" is not one of the allowed choices.'
 iaas_vpn_create_114 = 'The "ike_pre_shared_key" parameter is invalid. "ike_pre_shared_key" is required.'
 iaas_vpn_create_115 = (
     'The "ike_pre_shared_key" parameter is invalid. "ike_pre_shared_key" cannot contain any of '
     '\", \', @, +, -, =, /, \\,| and space these special characters.'
-)
-iaas_vpn_create_116 = (
-    'The "ike_pre_shared_key" parameter is invalid. When the IKE encryption algorithm is `des-cbc`, the max allowed '
-    'length for the pre shared key is 8 characters.'
-)
-iaas_vpn_create_117 = (
-    'The "ike_pre_shared_key" parameter is invalid. When the IKE encryption algorithm is `3des-cbc`, the max allowed '
-    'length for the pre shared key is 24 characters.'
 )
 iaas_vpn_create_118 = (
     'The "ike_pre_shared_key" parameter is invalid. The pre shared key cannot be longer than 255 characters.'
@@ -104,8 +95,8 @@ iaas_vpn_create_140 = (
     'The "ike_gateway_type" parameter is invalid. "ike_gateway_type" must be either \'public_ip\' or \'hostname\'.'
 )
 iaas_vpn_create_141 = 'The "ike_gateway_value" parameter is invalid. "ike_gateway_value" is required.'
-iaas_vpn_create_142 = 'The "ike_gateway_value" paramter is invalid. "ike_gateway_value" must be a valid FQDN.'
-
+iaas_vpn_create_142 = 'The "ike_gateway_value" parameter is invalid. "ike_gateway_value" must be a valid FQDN.'
+iaas_vpn_create_201 = 'You do not have permission to make this request. A User must be public to create VPNs.'
 # Read
 iaas_vpn_read_001 = 'The "pk" path parameter is invalid. "pk" does not correspond with a valid VPN record.'
 iaas_vpn_read_201 = 'You do not have permission to make this request. Robots can only read the VPNs in their region.'
@@ -144,14 +135,6 @@ iaas_vpn_update_110 = 'The "ike_pre_shared_key" parameter is invalid. "ike_pre_s
 iaas_vpn_update_111 = (
     'The "ike_pre_shared_key" parameter is invalid. "ike_pre_shared_key" cannot contain any of '
     '\", \', @, +, -, =, /, \\,|  these special characters.'
-)
-iaas_vpn_update_112 = (
-    'The "ike_pre_shared_key" parameter is invalid. When the IKE encryption algorithm is `des-cbc`, the max allowed '
-    'length for the pre shared key is 8 characters.'
-)
-iaas_vpn_update_113 = (
-    'The "ike_pre_shared_key" parameter is invalid. When the IKE encryption algorithm is `3des-cbc`, the max allowed '
-    'length for the pre shared key is 24 characters.'
 )
 iaas_vpn_update_114 = (
     'The "ike_pre_shared_key" parameter is invalid. The pre shared key cannot be longer than 255 characters.'
@@ -203,11 +186,16 @@ iaas_vpn_update_136 = (
 )
 iaas_vpn_update_137 = 'The "ike_gateway_value" parameter is invalid. "ike_gateway_value" is required.'
 iaas_vpn_update_138 = 'The "ike_gateway_value" paramter is invalid. "ike_gateway_value" must be a valid FQDN.'
+iaas_vpn_update_139 = 'The "ike_remote_identifier" parameter is invalid. "ike_remote_identifier" is required.'
+iaas_vpn_update_140 = (
+    'The "ike_remote_identifier" parameter is invalid. "ike_remote_identifier" cannot be longer than 253 characters .')
+iaas_vpn_update_141 = 'The "ike_remote_identifier" parameter is invalid. "ike_remote_identifier" must be a valid FQDN.'
+
 iaas_vpn_update_201 = (
     'You do not have permission to make this request. Robots can only update the VPNs in their region.'
 )
 iaas_vpn_update_202 = 'You do not have permission to make this request. Can only update VPNs that you own.'
-
+iaas_vpn_update_203 = 'You do not have permission to make this request. A User must be public to update VPNs.'
 # Delete
 iaas_vpn_delete_001 = 'The "pk" path parameter is invalid. "pk" does not correspond with a valid VPN record.'
 iaas_vpn_delete_002 = (
@@ -217,3 +205,4 @@ iaas_vpn_delete_201 = (
     'You do not have permission to make this request. Robots can only delete the VPNs in their region.'
 )
 iaas_vpn_delete_202 = 'You do not have permission to make this request. Can only delete VPNs that you own.'
+iaas_vpn_delete_203 = 'You do not have permission to make this request. A User must be public to delete VPNs.'

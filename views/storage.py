@@ -244,7 +244,7 @@ class StorageResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span) as span:
-            error = Permissions.head(request, vm, span)
+            error = Permissions.read(request, vm, span)
             if error is not None:
                 return Http404()
 

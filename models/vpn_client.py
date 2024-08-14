@@ -27,3 +27,4 @@ class VPNClient(BaseModel):
             # Indexing everything in the `search_fields` map in List Controller
             models.Index(fields=['id'], name='vpn_client_id'),
         ]
+        ordering = ['username']

@@ -140,11 +140,11 @@ iaas_router_update_117 = (
 iaas_router_update_118 = 'The "subnets" parameter is invalid. "subnets" must be a list of Subnet IDs'
 iaas_router_update_119 = 'The "subnets" parameter is invalid. "subnets" must have at least one Subnet ID in the list.'
 iaas_router_update_120 = (
-    'The "subnets" parameter is invalid. One of the subnets to be removed has cloud /64 Subnets in use. Projects for '
+    'The "subnets" parameter is invalid. One of the subnets to be removed has /64 Subnets in use. Projects for '
     'these child subnets should be closed before removing Subnet from Router'
 )
 iaas_router_update_121 = (
-    'The "subnets" parameter is invalid. One of the subnets to be removed has cloud IP Addresses in use. VMs or Virtual'
+    'The "subnets" parameter is invalid. One of the subnets to be removed has IP Addresses in use. VMs or Virtual'
     'Routers using these IP Addresses should be closed before removing Subnet from Router'
 )
 iaas_router_update_122 = 'The "subnets" parameter is invalid. All Subnet IDs in the list must be an integer.'

@@ -4,7 +4,6 @@ Views for IPAddress
 # stdlib
 from typing import Optional
 # libs
-import netaddr
 from cloudcix_rest.exceptions import Http400, Http404
 from cloudcix_rest.views import APIView
 from django.conf import settings
@@ -19,7 +18,7 @@ from iaas.controllers import (
     IPAddressCreateController,
     IPAddressUpdateController,
 )
-from iaas.models import ASN, IPAddress, Project, VirtualRouter
+from iaas.models import ASN, IPAddress, Project
 from iaas.permissions.ip_address import Permissions
 from iaas.serializers import IPAddressSerializer
 
@@ -142,7 +141,7 @@ class IPAddressCollection(APIView):
                 return Http400(errors=controller.errors)
 
         with tracer.start_span('checking_permissions', child_of=request.span) as span:
-            err = Permissions.create(request, controller.instance.subnet, controller.instance.cloud)
+            err = Permissions.create(request, controller.instance.subnet)
             if err is not None:
                 return err
 
@@ -186,33 +185,8 @@ class IPAddressResource(APIView):
             except IPAddress.DoesNotExist:
                 return Http404()
 
-        project = None
-        if obj.cloud:
-            # 1. Private IP for VM
-            # 2. Floating IP for virtual router
-            # 3. Floating IP natted to private IP for VM
-            with tracer.start_span('retrieve_project_for_cloud_ip', child_of=request.span):
-                if netaddr.IPAddress(obj.address).is_private():
-                    # 1. Private IP for VM
-                    project = obj.vm.project
-                else:
-                    # If the IP Address is a Public cloud IP, it is either a floating IP for a VM or the virtual
-                    # router's IP.
-                    private_ip = IPAddress.objects.filter(public_ip=obj.id)
-
-                    if len(private_ip) == 0:
-                        # 2. Floating IP for virtual router
-                        virtual_router = VirtualRouter.objects.filter(ip_address=obj)
-                        project = virtual_router[0].project
-                    elif len(private_ip) == 1:
-                        # 3. Floating IP natted to private IP for VM
-                        project = private_ip[0].vm.project
-                    else:  # pragma: no cover
-                        # More than 1 IP returned!
-                        return Http404()
-
         with tracer.start_span('checking_permissions', child_of=request.span):
-            err = Permissions.head(request, obj, project)
+            err = Permissions.read(request, obj)
             if err is not None:
                 return Http404()
 
@@ -243,33 +217,8 @@ class IPAddressResource(APIView):
             except IPAddress.DoesNotExist:
                 return Http404(error_code='iaas_ip_address_read_001')
 
-        project = None
-        if obj.cloud:
-            # 1. Private IP for VM
-            # 2. Floating IP for virtual router
-            # 3. Floating IP natted to private IP for VM
-            with tracer.start_span('retrieve_project_for_cloud_ip', child_of=request.span):
-                if netaddr.IPAddress(obj.address).is_private():
-                    # 1. Private IP for VM
-                    project = obj.vm.project
-                else:
-                    # If the IP Address is a Public cloud IP, it is either a floating IP for a VM or the virtual
-                    # router's IP.
-                    private_ip = IPAddress.objects.filter(public_ip=obj.id)
-
-                    if len(private_ip) == 0:
-                        # 2. Floating IP for virtual router
-                        virtual_router = VirtualRouter.objects.filter(ip_address=obj)
-                        project = virtual_router[0].project
-                    elif len(private_ip) == 1:
-                        # 3. Floating IP natted to private IP for VM
-                        project = private_ip[0].vm.project
-                    else:  # pragma: no cover
-                        # More than 1 IP returned!
-                        return Http400(error_code='iaas_ip_address_read_002')
-
         with tracer.start_span('checking_permissions', child_of=request.span):
-            err = Permissions.read(request, obj, project)
+            err = Permissions.read(request, obj)
             if err is not None:
                 return err
 

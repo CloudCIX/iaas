@@ -47,7 +47,7 @@ class FirewallRule(BaseModel):
     destination = models.TextField()
     order = models.IntegerField()
     pci_logging = models.BooleanField(default=False)
-    port = models.CharField(max_length=11, null=True)
+    port = models.CharField(max_length=256, null=True)
     protocol = models.CharField(max_length=4, choices=PROTOCOL_CHOICES)
     source = models.TextField()
     virtual_router = models.ForeignKey(VirtualRouter, related_name='firewall_rules', on_delete=models.CASCADE)
@@ -63,3 +63,4 @@ class FirewallRule(BaseModel):
             models.Index(fields=['deleted'], name='firewall_rule_deleted'),
             models.Index(fields=['order'], name='firewall_rule_order'),
         ]
+        ordering = ['order']

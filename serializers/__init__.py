@@ -3,9 +3,13 @@ from .app_settings import AppSettingsSerializer
 from .asn import ASNSerializer
 from .backup import BackupSerializer
 from .backup_history import BackupHistorySerializer
+from .bom import BOMSerializer
+from .capacity import CapacitySerializer
 from .cix_blacklist import CIXBlacklistSerializer
 from .cix_whitelist import CIXWhitelistSerializer
 from .cloud import CloudSerializer
+from .device import DeviceSerializer
+from .device_type import DeviceTypeSerializer
 from .domain import DomainSerializer
 from .firewall_rule import FirewallRuleSerializer
 from .image import ImageSerializer
@@ -19,6 +23,8 @@ from .pool_ip import PoolIPSerializer
 from .project import ProjectSerializer
 from .record import RecordSerializer
 from .region_image import RegionImageSerializer  # pragma: no cover
+from .region_storage_type import RegionStorageTypeSerializer  # pragma: no cover
+from .resource import ResourceSerializer
 from .route import RouteSerializer
 from .router import RouterSerializer
 from .router_metrics import RouterMetricsSerializer
@@ -35,10 +41,10 @@ from .subnet import (
     SubnetSerializer,
     SubnetSpaceSerializer,
 )
-from .virtual_router import VirtualRouterSerializer
-from .vm import VMSerializer
+from .virtual_router import BaseVirtualRouterSerializer, VirtualRouterSerializer
+from .vm import BaseVMSerializer, VMSerializer
 from .vm_history import VMHistorySerializer
-from .vpn import VPNSerializer
+from .vpn import BaseVPNSerializer, VPNSerializer
 from .vpn_history import VPNHistorySerializer
 from .vpn_client import VPNClientSerializer
 from .vpn_status import VPNStatusSerializer
@@ -60,6 +66,12 @@ __all__ = [
     # Backup History
     'BackupHistorySerializer',
 
+    # BOM
+    'BOMSerializer',
+
+    # Capacity
+    'CapacitySerializer',
+
     # Blacklist
     'CIXBlacklistSerializer',
 
@@ -68,6 +80,12 @@ __all__ = [
 
     # Cloud
     'CloudSerializer',
+
+    # Device
+    'DeviceSerializer',
+
+    # Device Type
+    'DeviceTypeSerializer',
 
     # Domain
     'DomainSerializer',
@@ -92,7 +110,7 @@ __all__ = [
     'IPMISerializer',
 
     # Metrics
-    'MetricsSerializer'  # just for docs
+    'MetricsSerializer',  # just for docs
 
     # Policy Log
     'PolicyLogSerializer',
@@ -108,6 +126,12 @@ __all__ = [
 
     # RegionImage,
     'RegionImageSerializer',
+
+    # RegionStorageType
+    'RegionStorageTypeSerializer',
+
+    # Resource
+    'ResourceSerializer',
 
     # Route
     'RouteSerializer',
@@ -149,15 +173,18 @@ __all__ = [
     'SubnetSpaceSerializer',
 
     # Virtual Router
+    'BaseVirtualRouterSerializer',
     'VirtualRouterSerializer',
 
     # VM
+    'BaseVMSerializer',
     'VMSerializer',
 
     # VMHistory
     'VMHistorySerializer',
 
     # VPN
+    'BaseVPNSerializer',
     'VPNSerializer',
 
     # VPN Client

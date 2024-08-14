@@ -76,6 +76,7 @@ ROBOT_PROCESS_STATES = {
     QUIESCED_UPDATE,
     RESTART,
     SCRUB,
+    SCRUB_QUEUE,
 }
 
 # Stable States
@@ -111,4 +112,12 @@ SEND_EMAIL_STATES = [
     SCRUB,
     RUNNING_UPDATE,
     QUIESCED_UPDATE,
+]
+
+# States that the scrub time for objs needs to be calculated based on the projects grace period
+SCRUB_STATES = [
+    SCRUB,
+    SCRUB_PREP,
+    SCRUB_QUEUE,
+    SCRUBBING,
 ]

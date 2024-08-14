@@ -36,6 +36,8 @@ class VMHistory(BaseModel):
     cpu_quantity = models.IntegerField(null=True)
     cpu_sku = models.CharField(max_length=250, null=True)
     customer_address = models.IntegerField()
+    gpu_quantity = models.IntegerField(null=True)
+    gpu_sku = models.CharField(max_length=250, null=True)
     image_quantity = models.IntegerField(null=True)
     image_sku = models.CharField(max_length=250, null=True)
     nat_quantity = models.IntegerField(null=True)
@@ -62,6 +64,7 @@ class VMHistory(BaseModel):
             models.Index(fields=['created'], name='vm_history_created'),
             models.Index(fields=['customer_address'], name='vm_history_customer_address'),
             models.Index(fields=['deleted'], name='vm_history_deleted'),
+            models.Index(fields=['gpu_sku'], name='vm_history_gpu_sku'),
             models.Index(fields=['image_sku'], name='vm_history_image_sku'),
             models.Index(fields=['nat_sku'], name='vm_history_nat_sku'),
             models.Index(fields=['project_id'], name='vm_history_project_id'),

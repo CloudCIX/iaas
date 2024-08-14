@@ -1,6 +1,7 @@
 # libs
 import serpy
 
+
 __all__ = [
     'ProjectSerializer',
 ]
@@ -22,6 +23,11 @@ class ProjectSerializer(serpy.Serializer):
     created:
         description: The date that the Project entry was created
         type: string
+    grace_period:
+        description: |
+            Number of hours after a user scrub request before task is executed by robot.
+            The default value is 168 (24 x 7).
+        type: integer
     id:
         description: The ID of the Project.
         type: integer
@@ -41,16 +47,16 @@ class ProjectSerializer(serpy.Serializer):
         description: The region ID that the Project is in.
         type: integer
     reseller_id:
-        description: The Address ID that will recieve the bill for the Project.
+        description: The Address ID that will send the bill for the Project to the customer.
         type: integer
     shut_down:
         description: |
-            A flag stating whether or not the Project is classified as shut down.
+            A flag stating if the Project is classified as shut down.
             A Project is classified as shut down when all the infrastructure in it is in the Scrub set of states.
         type: boolean
     stable:
         description: |
-            A flag stating whether or not the Project is classified as stable.
+            A flag stating if the Project is classified as stable.
             A Project is classified as stable when all the infrastructure in it is in a stable state e.g. Running,
             Quiesced or Scrubbed.
         type: boolean
@@ -68,6 +74,7 @@ class ProjectSerializer(serpy.Serializer):
     closed = serpy.Field()
     cloud_uri = serpy.Field(attr='get_cloud_url', call=True)
     created = serpy.Field(attr='created.isoformat', call=True)
+    grace_period = serpy.Field()
     id = serpy.Field()
     manager_id = serpy.Field()
     min_state = serpy.Field()

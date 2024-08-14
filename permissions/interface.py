@@ -36,18 +36,6 @@ class Permissions:
         return None
 
     @staticmethod
-    def head(request: Request, obj: Interface) -> Optional[Http403]:
-        """
-        The request to access an interface is valid if:
-       - Interface's server's region is requesting users address
-        """
-        if request.user.address['id'] == 1:  # pragma: no cover
-            return None
-        if obj.server.region_id != request.user.address['id']:
-            return Http403()
-        return None
-
-    @staticmethod
     def read(request: Request, obj: Interface) -> Optional[Http403]:
         """
         The request to get an interface is valid if:

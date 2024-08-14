@@ -119,3 +119,6 @@ iaas_virtual_router_update_202 = (
     'You do not have permission to make this request. Users can only update VirtualRouters that are related to '
     'Projects that belong to their Address.'
 )
+iaas_virtual_router_update_203 = (
+    'You do not have permission to make this request. A User must be public to update Virtual Routers.'
+)

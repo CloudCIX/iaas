@@ -102,15 +102,17 @@ class MetricsResource(APIView):
         data: Dict[str, Any] = {}
         with tracer.start_span('get_objects', child_of=request.span) as span:
             with tracer.start_span('get_vms', child_of=span):
-                # We want a breakdown of states for the VMs, both for the total list and each server
+                # We want a breakdown of states for the VMs, both for the total list and each server.
+                # order_by() required to override default ordering which is applied after annotate
                 data['vms'] = VM.objects.exclude(
                     state=state.CLOSED,
                 ).filter(
                     server__region_id=region_id,
+                    server__deleted__isnull=True,
                 ).values(
                     'state',
                     'server_id',
-                ).annotate(
+                ).order_by().annotate(
                     count=Count('state'),
                 )
                 # Returns a list of dicts for every state + server combo, and how many vms match that pattern

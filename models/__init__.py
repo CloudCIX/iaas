@@ -7,6 +7,8 @@ from .billable_model import BillableModelMixin
 from .bom import BOM
 from .cix_blacklist import CIXBlacklist
 from .cix_whitelist import CIXWhitelist
+from .device import Device
+from .device_type import DeviceType
 from .domain import Domain
 from .firewall_rule import FirewallRule
 from .image import Image
@@ -18,6 +20,7 @@ from .project import Project
 from .record import Record
 from .region_image import RegionImage
 from .region_storage_type import RegionStorageType
+from .resource import Resource
 from .route import Route
 from .router import Router
 from .server import Server
@@ -46,6 +49,8 @@ __all__ = [
     'BOM',
     'CIXBlacklist',
     'CIXWhitelist',
+    'Device',
+    'DeviceType',
     'Domain',
     'FirewallRule',
     'Image',
@@ -57,6 +62,7 @@ __all__ = [
     'Record',
     'RegionImage',
     'RegionStorageType',
+    'Resource',
     'Route',
     'Router',
     'Server',

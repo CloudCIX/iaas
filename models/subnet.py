@@ -5,6 +5,7 @@ from cloudcix_rest.models import BaseManager, BaseModel
 from django.db import models
 from django.urls import reverse
 # local
+from .asn import ASN
 from .allocation import Allocation
 from .router import Router
 
@@ -39,7 +40,6 @@ class Subnet(BaseModel):
     address_id = models.IntegerField(null=True)
     address_range = models.CharField(max_length=49)
     allocation = models.ForeignKey(Allocation, related_name='subnets', on_delete=models.PROTECT, null=True)
-    cloud = models.BooleanField(default=False)
     gateway = models.GenericIPAddressField(null=True)
     modified_by = models.IntegerField(null=True)
     name = models.CharField(max_length=128, default='')
@@ -64,7 +64,6 @@ class Subnet(BaseModel):
             models.Index(fields=['id'], name='subnet_id'),
             models.Index(fields=['address_id'], name='subnet_address_id'),
             models.Index(fields=['address_range'], name='subnet_address_range'),
-            models.Index(fields=['cloud'], name='subnet_cloud'),
             models.Index(fields=['created'], name='subnet_created'),
             models.Index(fields=['deleted'], name='subnet_deleted'),
             models.Index(fields=['gateway'], name='subnet_gateway'),
@@ -74,6 +73,7 @@ class Subnet(BaseModel):
             models.Index(fields=['vlan'], name='subnet_vlan'),
             models.Index(fields=['vxlan'], name='subnet_vxlan'),
         ]
+        ordering = ['address_range']
 
     def get_absolute_url(self) -> str:
         """
@@ -81,6 +81,13 @@ class Subnet(BaseModel):
         :return: A URL that corresponds to the views for this Subnet record
         """
         return reverse('subnet_resource', kwargs={'pk': self.pk})
+
+    @property
+    def from_project_network(self):
+        """
+        It is from a Project Network, if it's Allocation ASN numebr is greater than the Pseddo ASN offset.
+        """
+        return self.allocation.asn.number > ASN.pseudo_asn_offset
 
     @property
     def ips_in_use(self) -> int:

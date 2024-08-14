@@ -27,9 +27,6 @@ class IPAddressSerializer(NATIPAddressSerializer):
     address:
         description: The actual address of the IPAddress record.
         type: string
-    cloud:
-        description: A flag stating whether or not the IPAddress record is related to the Cloud operations.
-        type: boolean
     created:
         description: Timestamp, in ISO format, of when the IPAddress record was created.
         type: string
@@ -41,6 +38,9 @@ class IPAddressSerializer(NATIPAddressSerializer):
         type: integer
     location:
         description: An optional string containing location information for the IPAddress record.
+        type: string
+    mac_address:
+        description: The MAC address of the interface for a VMs Private IP.
         type: string
     modified_by:
         description: ID of the User who last updated this IPAddress record.
@@ -59,10 +59,10 @@ class IPAddressSerializer(NATIPAddressSerializer):
         description: The ID of the VM the IP Address is configured on.
         type: integer
     """
-    cloud = serpy.Field()
     created = serpy.Field(attr='created.isoformat', call=True)
     credentials = serpy.Field()
     location = serpy.Field()
+    mac_address = serpy.Field()
     modified_by = serpy.Field()
     name = serpy.Field()
     public_ip = NATIPAddressSerializer(required=False)

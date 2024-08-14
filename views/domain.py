@@ -120,10 +120,11 @@ class DomainCollection(APIView):
                 logger = logging.getLogger('iaas.views.domain.create')
                 data = {'name': controller.instance.name}
                 response = rage4.domain_create(data)
-                if response is None:
+                try:
+                    rage4_response = response.json()
+                except (AttributeError, ValueError):
                     logger.error('Domain Create: No response received from Rage4 API')
                     return Http503(error_code='iaas_domain_create_001')
-                rage4_response = response.json()
                 if response.status_code != 200 or not rage4_response.get('status'):
                     # Request to Rage4 will return a 200 response.status_code. status will be False if request fails
                     # Success Request - # {'status': True, 'id': 1234, 'error': ''}
@@ -181,7 +182,7 @@ class DomainResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span):
-            error = Permissions.head(request, obj)
+            error = Permissions.read(request, obj)
             if error is not None:
                 return Http404()
 
@@ -266,10 +267,11 @@ class DomainResource(APIView):
             with tracer.start_span('deleting_object_from_rage4', child_of=request.span):
                 logger = logging.getLogger('iaas.views.domain.delete')
                 response = rage4.domain_delete(obj.pk)
-                if response is None:
+                try:
+                    rage4_response = response.json()
+                except (AttributeError, ValueError):
                     logger.error('Domain delete: No response received from Rage4 API')
                     return Http503(error_code='iaas_domain_delete_002')
-                rage4_response = response.json()
                 if response.status_code != 200 or not rage4_response.get('status'):
                     # Request to Rage4 will return a 200 response.status_code. status will be False if request fails
                     # Success Request - # {'status': True, 'id': 1234, 'error': ''}

@@ -9,12 +9,12 @@ from jaeger_client import Span
 from rest_framework.request import QueryDict, Request
 # local
 from iaas import models, state, skus
-from .create import CloudCreateController, CloudCreateException, VPNCreateException
+from .create import CloudCreateController, CloudCreateException
 from ..helpers import create_cloud_subnets, IAASException
 from ..project import ProjectUpdateController
 from ..virtual_router import VirtualRouterUpdateController
 from ..vm import VMUpdateController
-from ..vpn import VPNUpdateController
+
 
 __all__ = [
     'CloudUpdateController',
@@ -37,17 +37,13 @@ class CloudUpdateController(CloudCreateController):
     # Need to save some things for create / update
     _current_fw_rules: List[models.FirewallRule] = []
     _current_subnets: List[models.Subnet] = []
+    _current_vm_devices: List[models.Device] = []
     _current_vm_ips: List[models.IPAddress] = []
-    _current_vpn_routes: List[models.Route] = []
-    _current_vpn_clients: List[models.VPNClient] = []
-    _delete_vpns: List[models.VPN] = []
     _new_fw_rules: Deque[models.FirewallRule]
     _new_storages: Deque[models.Storage]
     _new_vms: Deque[models.VM]
+    _new_vm_devices: List[models.Device] = []
     _new_vm_ips: Deque[models.IPAddress]
-    _new_vpns: Deque[models.VPN]
-    _new_vpn_routes: Deque[models.Route]
-    _new_vpn_clients: Deque[models.VPNClient]
     _router_initial_state: int = -1
     _update_storages: Deque[models.Storage]
     _update_histories: Deque[models.VMHistory]
@@ -63,7 +59,6 @@ class CloudUpdateController(CloudCreateController):
             'project',
             'subnets',
             'vms',
-            'vpns',
             'firewall_rules',
         )
 
@@ -87,10 +82,8 @@ class CloudUpdateController(CloudCreateController):
         self._new_fw_rules = deque()
         self._new_storages = deque()
         self._new_vms = deque()
+        self._new_vm_devices: List[Any] = []
         self._new_vm_ips = deque()
-        self._new_vpns = deque()
-        self._new_vpn_routes = deque()
-        self._new_vpn_clients = deque()
         self._update_storages = deque()
         self._update_histories = deque()
 
@@ -109,29 +102,6 @@ class CloudUpdateController(CloudCreateController):
         for storage in self._new_storages:
             storage.delete()
 
-        # Delete any new VPN routes
-        for route in self._new_vpn_routes:  # pragma: no cover
-            route.delete()
-
-        # Save back old VPN routes
-        for route in self._current_vpn_routes:
-            route.save()
-
-        # Delete any new VPNs
-        for vpn in self._new_vpns:  # pragma: no cover
-            # delete or save Dynamic secure connect vpn stuff
-            if vpn.vpn_type == models.VPN.DYNAMIC_SECURE_CONNECT:
-                # Delete any new VPN clients
-                for vpn_client in self._new_vpn_clients:  # pragma: no cover
-                    vpn_client.delete()
-
-                # Save back old VPN clients
-                for vpn_client in self._current_vpn_clients:
-                    vpn_client.save()
-
-            vpn.cascade_delete()
-            vpn.delete()
-
         # Delete the new ips created
         for ip in self._new_vm_ips:  # pragma: no cover
             ip.cascade_delete()
@@ -142,6 +112,15 @@ class CloudUpdateController(CloudCreateController):
             if ip.public_ip is not None:
                 ip.public_ip.deleted = None
                 ip.public_ip.save()
+
+        # Remove vm_id from the all devices for vm
+        for device in self._new_vm_devices:
+            device.vm_id = None
+            device.save()
+
+        # Save back the old devices with vm_id
+        for device in self._current_vm_devices:
+            device.save()
 
         # Delete new VMs
         for vm in self._new_vms:    # pragma: no cover
@@ -173,16 +152,6 @@ class CloudUpdateController(CloudCreateController):
         for fw in self._current_fw_rules:
             fw.delete()
 
-        # Delete removed VPNs
-        for vpn in self._delete_vpns:
-            vpn.cascade_delete()
-
-        # Save new and updated VPN objects
-        for vpn in self.vpns:
-            vpn.save()
-        for vpn in self._new_vpns:
-            vpn.save()
-
         # Save new and updated VMs and histories
         for history in self._update_histories:
             history.save()
@@ -203,13 +172,10 @@ class CloudUpdateController(CloudCreateController):
             self.virtual_router.state = update_state
 
         self.virtual_router.save()
+        self.project.save()
 
         if self._run_robot or self._update_virtual_router:
-            self.project.run_robot = True
-            self.project.run_icarus = True
-
-        # Save the project
-        self.project.save()
+            self.project.set_run_robot_flags()
 
     def validate_project(self, project: Optional[Dict[str, Any]]) -> Optional[str]:
         """
@@ -332,6 +298,7 @@ class CloudUpdateController(CloudCreateController):
                 - storage_type_id
                 - storages
                 - cpu
+                - gpu
                 - ram
                 - dns
                 - name
@@ -367,6 +334,10 @@ class CloudUpdateController(CloudCreateController):
                 cpu:
                     description: |
                         The number of Virtual CPUs (vCPUs) that the VM should be created with.
+                    type: integer
+                gpu:
+                    description: |
+                        The number of GPUSs that the VM should be updated with.
                     type: integer
                 ram:
                     description: |
@@ -445,323 +416,6 @@ class CloudUpdateController(CloudCreateController):
         # of errors, so we don't have to do anything here
         return None
 
-    def validate_vpns(self, vpns: Optional[List[Dict[str, Any]]]) -> Optional[str]:
-        """
-        description: |
-            An array of objects containing the details of VPN Tunnels to be created or updated for the Project.
-
-            To update existing VPNs, include the `id` field.
-            Without this field, the API will create a new VPN using the sent details.
-        type: array
-        required: false
-        items:
-            type: object
-            required:
-                - dns
-                - ike_authentication
-                - ike_dh_groups
-                - ike_encryption
-                - ike_lifetime
-                - ike_mode
-                - ike_pre_shared_key
-                - ike_version
-                - ipsec_authentication
-                - ipsec_encryption
-                - ipsec_establish_time
-                - ipsec_pfs_groups
-                - ipsec_lifetime
-                - routes
-                - traffic_selector
-                - vpn_clients
-            properties:
-                id:
-                    description: |
-                        The ID of the VPN to be updated.
-
-                        The presence or absence of this field denotes whether the API should update an existing VPN
-                        or create a new one respectively.
-                    type: integer
-                dns:
-                    description: |
-                        The IP Address of the Customer's DNS.
-                        Must be IPv4 for now.
-                        Required only for Dynamic Secure connect type VPNs.
-                    type: string
-                ike_authentication:
-                    description: |
-                        A string containing a comma separated array of authentication algorithms for the IKE phase of
-                        the VPN Tunnel.
-
-                        The IKE phase authentication algorithms supported by CloudCIX are;
-                        - `md5`
-                        - `sha1`
-                        - `sha-256`
-                        - `sha-384`
-
-                        Please ensure that each entry in the array matches one of the above strings exactly.
-                        Duplicate entries will be ignored.
-                    type: string
-                ike_dh_groups:
-                    description: |
-                        A string containing a comma separated array of Diffie-Helmen groups for the IKE phase of the
-                        VPN Tunnel.
-
-                        The IKE phase Diffie-Helmen groups supported by CloudCIX are;
-                        - `group1`
-                        - `group2`
-                        - `group5`
-                        - `group19`
-                        - `group20`
-                        - `group24`
-
-                        Please ensure that each entry in the array matches one of the above strings exactly.
-                        Duplicate entries will be ignored.
-                    type: string
-                ike_encryption:
-                    description: |
-                        A string containing a comma separated array of encryption algorithms for the IKE phase of the
-                        VPN Tunnel.
-
-                        The IKE phase encryption algorithms supported by CloudCIX are;
-                        - `aes-128-cbc`
-                        - `aes-192-cbc`
-                        - `aes-256-cbc`
-                        - `des-cbc`
-                        - `3des-cbc`
-
-                        Please ensure that each entry in the array matches one of the above strings exactly.
-                        Duplicate entries will be ignored.
-                    type: string
-                ike_lifetime:
-                    description: |
-                        The lifetime of the IKE phase in seconds.
-                        Must be a value between 180 and 86400 inclusive.
-                        Defaults to 28800.
-                    type: integer
-                    minimum: 180
-                    maximum: 86400
-                ike_mode:
-                    description: |
-                        String value of the chosen mode for the IKE phase.
-
-                        The IKE phase modes supported by CloudCIX are;
-                        - `main`
-                        - `aggressive`
-
-                        Please ensure the sent string matches one of these exactly.
-                    type: string
-                ike_pre_shared_key:
-                    description: |
-                        The pre shared key to use for setting up the IKE phase of the VPN Tunnel.
-
-                        Note that the pre shared key cannot contain any of the following special characters;
-                        - "
-                        - '
-                        - @
-                        - +
-                        - -
-                        - /
-                        - \
-                        - |
-                        - =
-
-                        Also note that the default max length of the pre shared key is 255 characters, except in the
-                        following cases;
-                        - If the chosen IKE encryption algorithm is `des-cbc`, the max length is 8 characters
-                        - If the chosen IKE encryption algorithm is `3des-cbc`, the max length is 24 characters
-                    type: string
-                ike_version:
-                    description: |
-                        String value of the chosen version for the IKE phase.
-
-                        The IKE phase versions supported by CloudCIX are;
-                        - `v1-only`
-                        - `v2-only`
-
-                        Please ensure the sent string matches one of these exactly.
-                    type: string
-                ipsec_authentication:
-                    description: |
-                        A string containing a comma separated array of authentication algorithms for the IPSec phase of
-                        the VPN Tunnel.
-
-                        The IPSec phase authentication algorithms supported by CloudCIX are;
-                        - `hmac-md5-96`
-                        - `hmac-sha1-96`
-                        - `hmac-sha-256-128`
-
-                        Please ensure that each entry in the array matches one of the above strings exactly.
-                        Duplicate entries will be ignored.
-                    type: string
-                ipsec_encryption:
-                    description: |
-                        A string containing a comma separated array of encryption algorithms for the IPSEC phase of
-                        the VPN Tunnel.
-
-                        The IPSEC phase encryption algorithms supported by CloudCIX are;
-                        - `aes-128-cbc`
-                        - `aes-192-cbc`
-                        - `aes-256-cbc`
-                        - `des-cbc`
-                        - `3des-cbc`
-                        - `aes-128-gcm`
-                        - `aes-192-gcm`
-                        - `aes-256-gcm`
-
-                        Please ensure that each entry in the array matches one of the above strings exactly.
-                        Duplicate entries will be ignored.
-                    type: string
-                ipsec_establish_time:
-                    description: |
-                        String value of the chosen establish_time for the IPSec phase.
-
-                        The IPSec phase establish time values supported by CloudCIX are;
-                        - `immediately`
-                        - `on-traffic`
-
-                        Please ensure the sent string matches one of these exactly.
-                    type: string
-                ipsec_pfs_groups:
-                    description: |
-                        A string containing a comma separated array of Perfect Forward Secrecy (PFS) groups for the
-                        IPSec phase of the VPN Tunnel.
-                        This can also be set to None
-
-                        The IPSec phase PFS groups supported by CloudCIX are;
-                        - `group1`
-                        - `group2`
-                        - `group5`
-                        - `group14`
-                        - `group19`
-                        - `group20`
-                        - `group24`
-
-                        Please ensure that each entry in the array matches one of the above strings exactly.
-                        Duplicate entries will be ignored.
-                    type: string
-                ipsec_lifetime:
-                    description: |
-                        The lifetime of the IPSec phase in seconds.
-                        Must be a value between 180 and 86400 inclusive.
-                        Defaults to 3600.
-                    type: integer
-                    minimum: 180
-                    maximum: 86400
-                routes:
-                    description: |
-                        An array of routes with local and remote subnets to connect via the VPN.
-
-                        The local subnet is the CIDR of the Subnet in the Project that this Route will connect with.
-                        The remote subnet is the CIDR of the Subnet on the Customer side of the VPN Tunnel that should
-                        be given access through the Route.
-
-                        Please note that none of the remote subnets can overlap with any of the Subnets in this Project
-                        or with a remote subnet on another VPN's route in this Project.
-
-                    items:
-                        type: object
-                        properties:
-                            local_subnet:
-                                type: string
-                            remote_subnet:
-                                type: string
-                traffic_selector:
-                    description: |
-                        Boolean value stating if traffic selectors are to be used in configuring vpn tunnel.
-                        The default is false and 0.0.0.0/0 will be used for the default local and remote subnets.
-                        If true, then each of the local and remote subnets will be added to the configuration
-                        negotiation with peer.
-                    type: boolean
-                vpn_clients:
-                    description: |
-                        An array of vpn_clients with username and passwords to connect Dynamic Secure connect VPNtunnel.
-
-                    items:
-                        type: object
-                        properties:
-                            password:
-                                description:
-                                    Note that the password cannot contain any of the following special characters;
-                                    - `"`
-                                    - `'`
-                                    - `@`
-                                    - `+`
-                                    - `-`
-                                    - `/`
-                                    - `\\`
-                                    - `|`
-                                    - `=`
-
-                                    Also note that the default max length of the password is 255 characters.
-                                type: string
-                            username:
-                                description:
-                                    Note that the username cannot contain any of the following special characters;
-                                    - `"`
-                                    - `&`
-                                    - `(`
-                                    - `)`
-                                    - `\\`
-                                    - `|`
-                                    - `?`
-
-                                    Also note that the default max length of the username is 64 characters.
-                                type: string
-        """
-        vpns = vpns or []
-        if not isinstance(vpns, list):
-            return 'iaas_cloud_update_107'
-
-        tracer = settings.TRACER
-
-        # Set up a list of errors
-        errors: List[Optional[Dict[str, Any]]] = [None for _ in vpns]
-
-        # Early out, VPNs have been removed - delete existing on save()
-        if len(vpns) == 0:
-            self._delete_vpns = list(self.virtual_router.vpn_tunnels.iterator())
-            if bool(self._delete_vpns) and self.virtual_router.can_update():
-                self._update_virtual_router = True
-            return None
-
-        # Iterate through the list and attempt to create each VPN in question
-        for index, data in enumerate(vpns):
-            if not isinstance(data, dict):
-                code = 'iaas_cloud_update_108'
-                errors[index] = get_error_details(code)[code]
-                continue
-
-            pk = data.get('id', None)
-            # New VPN
-            if pk is None:
-                try:
-                    with tracer.start_span(f'_create_vpn_{index}', child_of=self.span) as span:
-                        vpn = self._create_vpn(data, span)
-                        self._new_vpns.append(vpn)
-                        self.virtual_router.refresh_from_db()
-                        if self.virtual_router.can_update():
-                            self._update_virtual_router = True
-                except CloudCreateException as e:
-                    errors[index] = e.response
-                except VPNCreateException as e:  # pragma: no cover
-                    errors[index] = {'stif_number': get_error_details(e.args[0])[e.args[0]]}
-
-            else:
-                with tracer.start_span(f'_update_vpn_{index}', child_of=self.span) as span:
-                    try:
-                        vpn = self._update_vpn(pk, data, span)
-                        self.vpns.append(vpn)
-                    except CloudUpdateException as e:
-                        errors[index] = e.response
-
-        # Check if we have errors to report
-        if any(error is not None for error in errors):
-            self._errors['vpns'] = errors
-
-        # We add the vpns to self.vpns immediately after creation because we need to know what to delete in case
-        # of errors, so we don't have to do anything here
-        return None
-
     def validate_firewall_rules(self, firewall_rules: Optional[List[Dict[str, Any]]]) -> Optional[str]:
         """
         description: |
@@ -833,14 +487,14 @@ class CloudUpdateController(CloudCreateController):
         # Initial checking of the sent data before running creation jobs
         firewall_rules = firewall_rules or []
         if not isinstance(firewall_rules, list):
-            return 'iaas_cloud_update_109'
+            return 'iaas_cloud_update_107'
 
         # Save the old firewall rules to delete if we are successful
         self._current_fw_rules = list(self.virtual_router.firewall_rules.iterator())
 
         # Early out, if list is empty,_current_fw_rules will be deleted on save()
         if len(firewall_rules) == 0:
-            if bool(self._current_fw_rules) and self.virtual_router.can_update():
+            if any(self._current_fw_rules) and self.virtual_router.can_update():
                 self._update_virtual_router = True
             return None
 
@@ -852,7 +506,7 @@ class CloudUpdateController(CloudCreateController):
         # Iterate through the list and attempt to create each FR in question
         for index, data in enumerate(firewall_rules):
             if not isinstance(data, dict):
-                code = 'iaas_cloud_update_110'
+                code = 'iaas_cloud_update_108'
                 errors[index] = get_error_details(code)[code]
                 continue
 
@@ -884,17 +538,21 @@ class CloudUpdateController(CloudCreateController):
         The returned VM instance will have updated data but will need to be saved
         """
         tracer = settings.TRACER
-
         with tracer.start_span('fetching_object', child_of=span):
             try:
                 obj = models.VM.objects.get(pk=pk, project=self.project)
             except models.VM.DoesNotExist:
-                code = 'iaas_cloud_update_111'
+                code = 'iaas_cloud_update_109'
                 raise CloudUpdateException(get_error_details(code)[code])
 
         # Save the old vm ips to save back if we are unsuccessful
         for ip in obj.vm_ips.all():
             self._current_vm_ips.append(models.IPAddress.objects.get(pk=ip.pk))
+
+        # Save the old vm devices to save back if we are unsuccessful
+        current_devices = models.Device.objects.filter(vm_id=pk)
+        for device in current_devices:
+            self._current_vm_devices.append(device)
 
         # Make sure they don't mess with state through this
         data['state'] = obj.state
@@ -949,77 +607,11 @@ class CloudUpdateController(CloudCreateController):
         self.virtual_router.refresh_from_db()
         if controller.update_virtual_router and self.virtual_router.can_update():  # pragma: no cover
             self._update_virtual_router = True
+
+        # Save the new vm devices to delete if we are unsuccessful (controller adds vm_id to Device to reduce chance
+        # of race conditions)
+        current_devices = models.Device.objects.filter(vm_id=pk)
+        for device in current_devices:
+            self._new_vm_devices.append(device)
+
         return controller.instance, history
-
-    def _update_vpn(self, pk: int, data: Dict[str, Any], span: Span) -> models.VPN:
-        """
-        Create a VPN using the Controller and the supplied data.
-        This has been put into its own method so that the update controller can also use it.
-
-        # We need to add the ids to the data
-        """
-        tracer = settings.TRACER
-
-        with tracer.start_span('fetching_object', child_of=span):
-            try:
-                obj = models.VPN.objects.get(pk=pk, virtual_router=self.virtual_router)
-            except models.VPN.DoesNotExist:
-                code = 'iaas_cloud_update_112'
-                raise CloudUpdateException(get_error_details(code)[code])
-
-        # Save the old vpn routes to save back if we are unsuccessful
-        for route in obj.routes.all():
-            self._current_vpn_routes.append(models.Route.objects.get(pk=route.pk))
-
-        # Save the old vpn clients to save back if we are unsuccessful
-        if obj.vpn_type == models.VPN.DYNAMIC_SECURE_CONNECT:
-            for vpn_client in obj.vpn_clients.all():
-                self._current_vpn_clients.append(models.VPNClient.objects.get(pk=vpn_client.pk))
-
-        with tracer.start_span('validating_controller', child_of=span) as child_span:
-            controller = VPNUpdateController(
-                request=self.request,
-                data=data,
-                span=child_span,
-                instance=obj,
-            )
-            if not controller.is_valid():
-                raise CloudUpdateException(controller.errors)
-
-        with tracer.start_span('saving_routes', child_of=span):
-            routes = controller.cleaned_data.pop('routes', {})
-            for route in routes:
-                route.vpn = obj
-                route.save()
-                self._new_vpn_routes.append(route)
-
-        num_clients = 0
-        if obj.vpn_type == models.VPN.DYNAMIC_SECURE_CONNECT:
-            with tracer.start_span('saving_vpn_clients', child_of=span):
-                vpn_clients = controller.cleaned_data.pop('vpn_clients', {})
-                for vpn_client in vpn_clients:
-                    vpn_client.vpn = obj
-                    vpn_client.save()
-                    num_clients += 1
-                    self._new_vpn_clients.append(vpn_client)
-
-        if controller.instance.send_email:
-            vpn_sku = skus.SITE_TO_SITE
-            if controller.instance.vpn_type == models.VPN.DYNAMIC_SECURE_CONNECT:
-                vpn_sku = skus.DYNAMIC_SECURE_CONNECT
-            with tracer.start_span('generate_vpn_history', child_of=span):
-                models.VPNHistory.objects.create(
-                    modified_by=self.request.user.id,
-                    customer_address=obj.virtual_router.project.address_id,
-                    project_id=obj.virtual_router.project.pk,
-                    project_name=obj.virtual_router.project.name,
-                    vpn=obj,
-                    vpn_quantity=max(num_clients, 1),
-                    vpn_sku=vpn_sku,
-                )
-
-        self.virtual_router.refresh_from_db()
-        if self.virtual_router.can_update():
-            self._update_virtual_router = True
-        # Return without saving to avoid updating prematurely
-        return controller.instance

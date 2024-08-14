@@ -48,6 +48,13 @@ urlpatterns: List[path] = [
         name='asn_resource',
     ),
 
+    # Attach
+    path(
+        'attach/<int:resource_id>/parent/<int:parent_resource_id>/',
+        views.AttachResource.as_view(),
+        name='attach_resource',
+    ),
+
     # Backup
     path(
         'backup/',
@@ -65,6 +72,25 @@ urlpatterns: List[path] = [
         'backup_history/',
         views.BackupHistoryCollection.as_view(),
         name='backup_history_collection',
+    ),
+
+    # Capacity
+    path(
+        'capacity/<int:region_id>/',
+        views.CapacityCollection.as_view(),
+        name='capacity_collection',
+    ),
+
+    # Ceph
+    path(
+        'ceph/',
+        views.CephCollection.as_view(),
+        name='ceph_collection',
+    ),
+    path(
+        'ceph/<int:pk>/',
+        views.CephResource.as_view(),
+        name='ceph_resource',
     ),
 
     # Blacklist
@@ -93,6 +119,7 @@ urlpatterns: List[path] = [
         name='cix_whitelist_resource',
     ),
 
+
     # Cloud
     path(
         'cloud/',
@@ -117,6 +144,32 @@ urlpatterns: List[path] = [
         name='cloud_bill_resource',
     ),
 
+    # Detach
+    path(
+        'detach/<int:resource_id>/',
+        views.DetachResource.as_view(),
+        name='detach_resource',
+    ),
+
+    # Device
+    path(
+        'device/',
+        views.DeviceCollection.as_view(),
+        name='device_collection',
+    ),
+
+    path(
+        'device/<int:pk>/',
+        views.DeviceResource.as_view(),
+        name='device_resource',
+    ),
+
+    # Device Type
+    path(
+        'device_type/',
+        views.DeviceTypeCollection.as_view(),
+        name='device_type_collection',
+    ),
 
     # Domain
     path(
@@ -271,6 +324,19 @@ urlpatterns: List[path] = [
         'region_image/<int:image_id>/',
         views.RegionImageResource.as_view(),
         name='region_image_resource',
+    ),
+
+    # RegionStorageType
+    path(
+        'region_storage_type/',
+        views.RegionStorageTypeCollection.as_view(),
+        name='region_storage_type_collection',
+    ),
+
+    path(
+        'region_storage_type/<int:storage_type_id>/',
+        views.RegionStorageTypeResource.as_view(),
+        name='region_storage_type_resource',
     ),
 
     # Router

@@ -134,10 +134,9 @@ class ProjectCollection(APIView):
             virtual_router.state = states.REQUESTED
             virtual_router.save()
 
-        with tracer.start_span('set_run_robot_and_run_icarus', child_of=span):
-            controller.instance.run_robot = True
-            controller.instance.run_icarus = True
-            controller.instance.save()
+        with tracer.start_span('saving_and_setting_run_robot_flags', child_of=span):
+            # `set_run_robot_flags` calls .save()
+            controller.instance.set_run_robot_flags()
 
         with tracer.start_span('serializing_data', child_of=request.span):
             data = ProjectSerializer(instance=controller.instance).data
@@ -176,7 +175,7 @@ class ProjectResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span) as span:
-            error = Permissions.head(request, obj, span)
+            error = Permissions.read(request, obj, span)
             if error is not None:
                 return Http404()
 
@@ -291,9 +290,7 @@ class ProjectResource(APIView):
                     )
                     vm.state = new_state
                     vm.save()
-
-                controller.instance.run_robot = True
-                controller.instance.run_icarus = True
+                controller.instance.set_run_robot_flags()
             elif state == 8:
                 obj.virtual_router.state = 8
                 obj.virtual_router.save()
@@ -308,10 +305,10 @@ class ProjectResource(APIView):
                     )
                     vm.state = 8
                     vm.save()
-                controller.instance.run_robot = True
-                controller.instance.run_icarus = True
-
-            controller.instance.save()
+                controller.instance.set_run_robot_flags()
+            else:
+                # Robot Flags and cache does not need to be set, saving other changes to instance
+                controller.instance.save()
 
         with tracer.start_span('serializing_data', child_of=request.span):
             data = ProjectSerializer(instance=controller.instance).data

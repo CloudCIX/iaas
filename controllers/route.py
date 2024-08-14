@@ -24,7 +24,6 @@ class RouteCreateController(ControllerBase):
     class Meta(ControllerBase.Meta):
         model = Route
         validation_order = (
-            # 'virtual_router_id',
             'local_subnet',
             'remote_subnet',
         )
@@ -52,7 +51,7 @@ class RouteCreateController(ControllerBase):
         super(RouteCreateController, self).__init__(request=request, data=data, span=span)
         self.cleaned_data['virtual_router'] = virtual_router
         self.cleaned_data['vpn_type'] = vpn_type
-        if bool(vpn_id):
+        if vpn_id is not None:
             self.cleaned_data['vpn_id'] = vpn_id
 
     def validate_local_subnet(self, local_subnet: Optional[int]) -> Optional[str]:
@@ -102,7 +101,7 @@ class RouteCreateController(ControllerBase):
 
         # Ensure remote subnet does not overlap with any of the subnets configured on requested VPN's virtual router if
         # remote is a Private Subnet
-        if netaddr.IPNetwork(remote_subnet).is_private():
+        if network.ip.is_global() is False:
             vr_subnets = netaddr.IPSet(Subnet.objects.filter(
                 deleted__isnull=True,
                 virtual_router_id=self.cleaned_data['virtual_router'].pk,
@@ -118,7 +117,7 @@ class RouteCreateController(ControllerBase):
         ).values_list('pk', flat=True)
         if 'vpn_id' in self.cleaned_data:
             vpn_ids = vpn_ids.exclude(pk=self.cleaned_data['vpn_id'])
-        if bool(vpn_ids):
+        if any(vpn_ids):
             existing_remote_subnets = netaddr.IPSet(
                 Route.objects.filter(
                     deleted__isnull=True,
@@ -137,7 +136,6 @@ class RouteCreateController(ControllerBase):
             # Get available dynamic subnets for vpn's virtual router's project's region
             try:
                 available = get_available_dynamic_remote_subnets(
-                    request=self.request,
                     region_id=self.cleaned_data['virtual_router'].project.region_id,
                     dynanmic_remote_subnet_error='iaas_route_create_109',
                 )
@@ -210,7 +208,7 @@ class RouteUpdateController(ControllerBase):
             return 'iaas_route_update_105'
 
         # Ensure remote subnet does not overlap with any of the subnets configured on requested VPN's virtual router.
-        if netaddr.IPNetwork(remote_subnet).is_private():
+        if network.ip.is_global() is False:
             vr_subnets = netaddr.IPSet(Subnet.objects.filter(
                 deleted__isnull=True,
                 virtual_router_id=self._instance.vpn.virtual_router.pk,
@@ -227,7 +225,7 @@ class RouteUpdateController(ControllerBase):
             pk=self._instance.vpn.pk,
         ).values_list('pk', flat=True)
 
-        if bool(vpn_ids):
+        if any(vpn_ids):
             existing_remote_subnets = netaddr.IPSet(
                 Route.objects.filter(
                     deleted__isnull=True,
@@ -249,7 +247,6 @@ class RouteUpdateController(ControllerBase):
             # Get available dynamic subnets for vpn's virtual router's project's region
             try:
                 available = get_available_dynamic_remote_subnets(
-                    request=self.request,
                     region_id=self._instance.vpn.virtual_router.project.region_id,
                     dynanmic_remote_subnet_error='iaas_route_update_109',
                 )

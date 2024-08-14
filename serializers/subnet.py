@@ -21,9 +21,6 @@ class RelatedSubnetSerializer(serpy.Serializer):
         type: string
     allocation:
         $ref: '#/components/schemas/Allocation'
-    cloud:
-        description: Flag stating whether or not this Subnet is designated for the Cloud.
-        type: boolean
     created:
         description: Timestamp, in ISO format, of when the Subnet record was created.
         type: string
@@ -65,7 +62,6 @@ class RelatedSubnetSerializer(serpy.Serializer):
     address_id = serpy.Field()
     address_range = serpy.Field()
     allocation = AllocationSerializer()
-    cloud = serpy.Field()
     created = serpy.Field(attr='created.isoformat', call=True)
     gateway = serpy.Field()
     id = serpy.Field()
@@ -95,9 +91,6 @@ class SubnetSerializer(RelatedSubnetSerializer):
         type: array
         items:
             $ref: '#/components/schemas/RelatedSubnet'
-    cloud:
-        description: Flag stating whether or not this Subnet is designated for the Cloud.
-        type: boolean
     created:
         description: Timestamp, in ISO format, of when the Subnet record was created.
         type: string
@@ -150,9 +143,6 @@ class SubnetSpaceSerializer(serpy.Serializer):
     address_range:
         description: The address range of the Subnet.
         type: string
-    cloud:
-        description: Flag stating whether or not this Subnet is designated for the Cloud.
-        type: boolean
     id:
         description: The ID of the Subnet record
         type: integer
@@ -181,7 +171,6 @@ class SubnetSpaceSerializer(serpy.Serializer):
 
     address_id = serpy.Field(required=False)
     address_range = serpy.Field()
-    cloud = serpy.Field(required=False)
     id = serpy.Field(required=False)
     ips_in_use = serpy.Field(required=False)
     modified_by = serpy.Field(required=False)

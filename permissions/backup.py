@@ -9,6 +9,7 @@ from datetime import datetime
 from iaas.models import Backup, VM
 from iaas.utils import get_addresses_in_member
 
+
 __all__ = [
     'Permissions',
 ]
@@ -24,31 +25,13 @@ class Permissions:
         """
         The request to create a Backup is valid if:
         - The requesting User's Address owns the Backup's VM.
+        - The requesting user is public.
         """
         if request.user.address['id'] != obj.project.address_id:
             return Http403(error_code='iaas_backup_create_201')
-
-        return None
-
-    @staticmethod
-    def head(request: Request, obj: Backup, span: Span) -> Optional[Http403]:
-        """
-        The request to access a Backup is valid if:
-        - The requesting User is the Robot from the region of the Backup VM of the Project.
-        - The requesting User's Address owns the Backup's VM.
-        - The requesting user is global active and Backup's VM is owned by an address in their Member.
-        """
-        if request.user.id == 1:  # pragma: no cover
-            return None
-        if request.user.robot:
-            if request.user.address['id'] != obj.vm.project.region_id:
-                return Http403()
-        elif request.user.address['id'] != obj.vm.project.address_id:
-            if request.user.is_global and request.user.global_active:
-                if obj.vm.project.address_id not in get_addresses_in_member(request, span):
-                    return Http403()
-            else:
-                return Http403()
+        # The requesting user is public
+        elif request.user.is_private:
+            return Http403(error_code='iaas_backup_create_202')
 
         return None
 
@@ -80,18 +63,21 @@ class Permissions:
         The request to update a Backup is valid if:
         - The requesting User is the Robot from the region of the Backup's project.
         - The requesting User's Address owns the Backup's VM.
+        - The requesting user is public.
         """
         if request.user.robot:
             if request.user.address['id'] != obj.vm.project.region_id:
                 return Http403(error_code='iaas_backup_update_201')
-        else:
-            if request.user.address['id'] != obj.vm.project.address_id:
-                return Http403(error_code='iaas_backup_update_202')
+        elif request.user.address['id'] != obj.vm.project.address_id:
+            return Http403(error_code='iaas_backup_update_202')
+        # The requesting user is public
+        elif request.user.is_private:
+            return Http403(error_code='iaas_backup_update_203')
 
         if current_time_valid == time_valid:
             return None
 
         if not request.user.robot:
-            return Http403(error_code='iaas_backup_update_203')
+            return Http403(error_code='iaas_backup_update_204')
 
         return None

@@ -21,6 +21,12 @@ class VMHistorySerializer(serpy.Serializer):
     customer_address:
         description: The id of the address to be billed for the VM
         type: integer
+    gpu_quantity:
+        description: The quantity of the GPU for the VM.
+        type: integer
+    gpu_sku:
+        description: The SKU for a GPU on a VM.
+        type: string
     image_quantity:
         description: The quantity of an Image for the VM
         type: integer
@@ -56,6 +62,12 @@ class VMHistorySerializer(serpy.Serializer):
         type: array
         items:
             $ref: '#/components/schemas/StorageHistory'
+    storage_histories:
+        description: An array of Storage History records created at the time this record was created.
+        type: array
+        items:
+            $ref: '#/components/schemas/StorageHistory'
+
     vm_id:
         description: The id for the VM that has being changed.
         type: integer
@@ -64,6 +76,8 @@ class VMHistorySerializer(serpy.Serializer):
     cpu_sku = serpy.Field(required=False)
     created = serpy.Field(attr='created.isoformat', call=True)
     customer_address = serpy.Field()
+    gpu_quantity = serpy.Field(required=False)
+    gpu_sku = serpy.Field(required=False)
     image_quantity = serpy.Field(required=False)
     image_sku = serpy.Field(required=False)
     modified_by = serpy.Field()
@@ -75,4 +89,5 @@ class VMHistorySerializer(serpy.Serializer):
     ram_sku = serpy.Field(required=False)
     state = serpy.Field(required=False)
     storages = StorageHistorySerializer(attr='storage_histories.iterator', call=True, many=True)
+    storage_histories = StorageHistorySerializer(attr='storage_histories.iterator', call=True, many=True)
     vm_id = serpy.Field()

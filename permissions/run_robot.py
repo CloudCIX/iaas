@@ -31,5 +31,4 @@ class Permissions:
         """
         if not request.user.robot:
             return Http403(error_code='iaas_run_robot_turn_off_201')
-
         return None

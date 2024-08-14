@@ -146,6 +146,7 @@ class PTRRecordCollection(APIView):
         with tracer.start_span('controller_instance_fields', child_of=request.span):
             controller.instance.name = reverse_ip
             controller.instance.georegion = Record.GLOBAL
+            controller.instance.priority = 1
             controller.instance.type = Record.PTR
 
         if settings.PRODUCTION_DEPLOYMENT:  # pragma: no cover
@@ -157,10 +158,11 @@ class PTRRecordCollection(APIView):
                 # Search for the domain with the generated name in rage4
                 with tracer.start_span('finding_domain', child_of=span):
                     response = rage4.domain_list()
-                    if response is None:
+                    try:
+                        rage4_response = response.json()
+                    except (AttributeError, ValueError):
                         logger.error('Domain List: No response received from Rage4 API')
                         return Http503(error_code='iaas_ptr_record_create_001')
-                    rage4_response = response.json()
                     if response.status_code != 200:
                         # Request to Rage4 will return a 200 response.status_code if list was successful
                         logger.error(
@@ -178,11 +180,12 @@ class PTRRecordCollection(APIView):
                     # Create a new Domain
                     with tracer.start_span('creating_new_domain', child_of=span):
                         data = {'name': domain_name, 'subnet': subnet_mask}
-                        response = rage4.reverse_domain_create(ip.version, data)
-                        if response is None:
+                        response = rage4.domain_create(data)
+                        try:
+                            rage4_response = response.json()
+                        except (AttributeError, ValueError):
                             logger.error('Reverse Domain create: No response received from Rage4 API')
                             return Http503(error_code='iaas_ptr_record_create_003')
-                        rage4_response = response.json()
                         if response.status_code != 200 or not rage4_response.get('status'):
                             # Request to Rage4 will return a 200 response.status_code. status will be False if request
                             # fails
@@ -190,7 +193,7 @@ class PTRRecordCollection(APIView):
                             # Failed Request - {'status': False, 'id': 1234, 'error': 'operation failed'}
                             logger.error(
                                 'Non 200 response received from Rage4 API or "error" was in the response for '
-                                f'reverse_domain_create. ({response.content.decode()}) for data {data}',
+                                f'domain_create. ({response.content.decode()}) for data {data}',
                             )
                             return Http503(error_code='iaas_ptr_record_create_004')
 
@@ -199,18 +202,20 @@ class PTRRecordCollection(APIView):
                 # Use the Domain (either pre-existing or newly created) to create the record in the API
                 with tracer.start_span('creating_ptr_record', child_of=span):
                     data = {
-                        'name': controller.instance.name,
+                        'id': domain_id,
                         'content': controller.cleaned_data['content'],
-                        'type': controller.instance.type,
-                        'ttl': controller.cleaned_data['time_to_live'],
                         'geozone': controller.instance.georegion,
+                        'name': controller.instance.name,
                         'priority': controller.instance.priority,
+                        'ttl': controller.cleaned_data['time_to_live'],
+                        'type': controller.instance.type,
                     }
-                    response = rage4.record_create(domain_id, data)
-                    if response is None:
+                    response = rage4.record_create(data)
+                    try:
+                        rage4_response = response.json()
+                    except (AttributeError, ValueError):
                         logger.error('PTR Record create: No response received from Rage4 API')
                         return Http503(error_code='iaas_ptr_record_create_005')
-                    rage4_response = response.json()
                     if response.status_code != 200 or not rage4_response.get('status'):
                         # Request to Rage4 will return a 200 response.status_code. status will be False if request
                         # fails
@@ -360,17 +365,19 @@ class PTRRecordResource(APIView):
             with tracer.start_span('updating_object_in_rage4', child_of=request.span):
                 logger = logging.getLogger('iaas.views.ptr_record.update')
                 data = {
+                    'id': controller.instance.pk,
                     'name': controller.instance.name,
                     'content': controller.instance.content,
                     'ttl': controller.instance.time_to_live,
                     'geozone': controller.instance.georegion,
                     'type': obj.type,
                 }
-                response = rage4.record_update(controller.instance.pk, data)
-                if response is None:
+                response = rage4.record_update(data)
+                try:
+                    rage4_response = response.json()
+                except (AttributeError, ValueError):
                     logger.error('PTR Record update: No response received from Rage4 API')
                     return Http503(error_code='iaas_ptr_record_update_002')
-                rage4_response = response.json()
                 if response.status_code != 200 or not rage4_response.get('status'):
                     # Request to Rage4 will return a 200 response.status_code. status will be False if request fails
                     # Success Request - # {'status': True, 'id': 1234, 'error': ''}
@@ -438,11 +445,15 @@ class PTRRecordResource(APIView):
         if settings.PRODUCTION_DEPLOYMENT:  # pragma: no cover
             with tracer.start_span('deleting_object_from_rage4', child_of=request.span):
                 logger = logging.getLogger('iaas.views.ptr_record.delete')
-                response = rage4.record_delete(obj.pk)
-                if response is None:
+                data = {
+                    'id': obj.pk,
+                }
+                response = rage4.record_delete(data)
+                try:
+                    rage4_response = response.json()
+                except (AttributeError, ValueError):
                     logger.error('PTR Record delete: No response received from Rage4 API')
                     return Http503(error_code='iaas_ptr_record_delete_002')
-                rage4_response = response.json()
                 if response.status_code != 200 or not rage4_response.get('status'):
                     # Request to Rage4 will return a 200 response.status_code. status will be False if request fails
                     # Success Request - # {'status': True, 'id': 1234, 'error': ''}

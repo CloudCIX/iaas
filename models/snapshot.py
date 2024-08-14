@@ -59,6 +59,7 @@ class Snapshot(BaseModel):
             models.Index(fields=['remove_subtree'], name='snapshot_remove_subtree'),
             models.Index(fields=['state'], name='snapshot_state'),
         ]
+        ordering = ['name']
 
     def get_absolute_url(self) -> str:
         """
@@ -87,3 +88,7 @@ class Snapshot(BaseModel):
         ).exclude(
             state__in=states.STABLE_STATES,
         ).exists()
+
+    @property
+    def scrub_queue_time_passed(self):
+        return False

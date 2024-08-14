@@ -16,6 +16,7 @@ iaas_storage_list_202 = (
     'You do not have permission to make this request. You can only list Storage records for VMs you own.'
 )
 
+
 # Create
 iaas_storage_create_001 = 'The "vm_id" parameter is invalid. "vm_id" does not correspond with a valid VM record.'
 iaas_storage_create_002 = (
@@ -34,6 +35,7 @@ iaas_storage_create_106 = 'The "primary" parameter is invalid. "primary" must be
 iaas_storage_create_201 = (
     'You do not have permission to make this request. You can only create Storage records for VMs you own.'
 )
+iaas_storage_create_202 = 'You do not have permission to make this request. A User must be public to create Storages.'
 
 # Read
 iaas_storage_read_001 = 'The "vm_id" path parameter is invalid. "vm_id" does not correspond to a valid VM record.'

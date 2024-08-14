@@ -7,6 +7,7 @@ from jaeger_client import Span
 from rest_framework.request import QueryDict, Request
 # local
 from iaas.models import FirewallRule, Subnet, VirtualRouter
+from iaas.utils import ip_is_private
 
 __all__ = [
     'FirewallRuleCreateController',
@@ -105,7 +106,7 @@ class FirewallRuleCreateController(ControllerBase):
 
         # Save some information about the source network
         self.source_version = network.version
-        self.source_is_private = network.is_private()
+        self.source_is_private = ip_is_private(network.ip)
         if self.source_is_private:
             self.private_subnet = network
 
@@ -141,11 +142,13 @@ class FirewallRuleCreateController(ControllerBase):
         # IP Versions
         if self.source_version != network.version:
             return 'iaas_firewall_rule_create_106'
+
         # One is private one is public
-        if self.source_is_private == network.is_private():
+        destination_is_private = ip_is_private(network.ip)
+        if self.source_is_private == destination_is_private:
             return 'iaas_firewall_rule_create_107'
 
-        if network.is_private():
+        if destination_is_private:
             self.private_subnet = network
 
         # Save the cidr for the subnet
@@ -205,6 +208,8 @@ class FirewallRuleCreateController(ControllerBase):
             Allowed Values:
                 `22`: Only port 22 is allowed
                 `20-25`: Ports between 20 and 25 inclusive are allowed
+                `22,24-25,444`: Combination of one or more single port and single port ranges
+                                with comma separated are allowed
                 ``: No port is required if the protocol is 'any' or 'icmp'
         type: string
         """
@@ -217,19 +222,28 @@ class FirewallRuleCreateController(ControllerBase):
                 return 'iaas_firewall_rule_create_111'
             return None
 
-        try:
-            if '-' in port:
-                items = port.split('-')
-                if len(items) >= 3:
-                    return 'iaas_firewall_rule_create_112'
-                for item in items:
-                    if int(item) not in PORT_RANGE:
-                        return 'iaas_firewall_rule_create_113'
-            else:
-                if int(port) not in PORT_RANGE:
-                    return 'iaas_firewall_rule_create_114'
-        except (TypeError, ValueError):
-            return 'iaas_firewall_rule_create_115'
+        # remove all blank spaces if any
+        port = port.replace(' ', '')
+
+        if len(port) > self.get_field('port').max_length:
+            return 'iaas_firewall_rule_create_119'
+
+        # remove trailing comma if any and split ports and validate each port.
+        ports = port.rstrip(',').split(',')
+        for prt in ports:
+            try:
+                if '-' in prt:
+                    items = prt.split('-')
+                    if len(items) >= 3:
+                        return 'iaas_firewall_rule_create_112'
+                    for item in items:
+                        if int(item) not in PORT_RANGE:
+                            return 'iaas_firewall_rule_create_113'
+                else:
+                    if int(prt) not in PORT_RANGE:
+                        return 'iaas_firewall_rule_create_114'
+            except (TypeError, ValueError):
+                return 'iaas_firewall_rule_create_115'
 
         self.cleaned_data['port'] = port
         return None

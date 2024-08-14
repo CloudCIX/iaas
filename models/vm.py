@@ -1,5 +1,6 @@
 # stdlib
-from typing import Callable, Dict
+from datetime import datetime, timedelta
+from typing import Callable, Dict, Optional
 import uuid
 # libs
 from cloudcix_rest.models import BaseManager, BaseModel
@@ -39,8 +40,8 @@ class VMManager(BaseManager):
             'server__storage_type',
             'server__type',
         ).prefetch_related(
-            'history',
             'backups',
+            'history',
             'snapshots',
             'storages',
             'server__interfaces',
@@ -56,14 +57,15 @@ class VM(BaseModel, BillableModelMixin):
     dns = models.TextField()
     image = models.ForeignKey(Image, on_delete=models.PROTECT)
     gateway_subnet = models.ForeignKey(Subnet, null=True, on_delete=models.PROTECT)
+    gpu = models.IntegerField(default=0)
     guid = models.UUIDField(default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='vms')
     public_key = models.TextField(null=True)
     ram = models.IntegerField()
-    userdata = models.CharField(max_length=SIXTEEN_KB)
     server = models.ForeignKey(Server, related_name='guest_vms', on_delete=models.PROTECT)
     state = models.IntegerField(default=states.IN_API)  # Start states at -1 instead of 0
+    userdata = models.CharField(max_length=SIXTEEN_KB)
 
     objects = VMManager()
 
@@ -79,6 +81,7 @@ class VM(BaseModel, BillableModelMixin):
             models.Index(fields=['name'], name='vm_name'),
             models.Index(fields=['state'], name='vm_state'),
         ]
+        ordering = ['name']
 
     def get_absolute_url(self) -> str:
         """
@@ -86,6 +89,21 @@ class VM(BaseModel, BillableModelMixin):
         :return: A URL that corresponds to the views for this VM record
         """
         return reverse('vm_resource', kwargs={'pk': self.pk})
+
+    @property
+    def available_devices(self) -> Optional[int]:
+        """
+        The number of devices curently available to be assigned to VM.
+        None will be returned it the VMs server does not have any devices
+        """
+        device_list = list(self.server.devices.iterator())
+        if len(device_list) == 0:
+            return None
+        devices = 0
+        for device in device_list:
+            if device.vm_id is None:
+                devices += 1
+        return devices
 
     def can_update(self) -> bool:
         """
@@ -95,6 +113,19 @@ class VM(BaseModel, BillableModelMixin):
         # RUNNING_UPDATE or QUIESCED_UPDATE is allowed
         return states.RUNNING_UPDATE in states.USER_STATE_MAP.get(self.state, {}) or \
             states.QUIESCED_UPDATE in states.USER_STATE_MAP.get(self.state, {})
+
+    @property
+    def scrub_queue_time_passed(self):
+        if self.state == states.SCRUB_QUEUE:
+            return self.updated + timedelta(hours=self.project.grace_period) < datetime.now()
+        return False
+
+    def set_deleted(self):
+        """
+        Delete the VM, and delete the IP Address records that are related to it
+        """
+        for ip in self.vm_ips.all():
+            ip.cascade_delete()
 
     def snapshots_stable(self) -> bool:
         """
@@ -114,7 +145,7 @@ class VM(BaseModel, BillableModelMixin):
         """
         Determine if the VM instance is stable.
 
-        The VM is stable if it and it's infrastructure are in stable states;
+        The VM is stable if it, and it's infrastructure are in stable states;
             - RUNNING
             - QUIESCED
             - SCRUB_QUEUE
@@ -123,15 +154,7 @@ class VM(BaseModel, BillableModelMixin):
 
         return self.state in states.STABLE_STATES and self.snapshots_stable()
 
-    def set_deleted(self):
-        """
-        Delete the VM, and delete the IP Address records that are related to it
-        """
-        for ip in self.vm_ips.all():
-            ip.cascade_delete()
-
     # Define the billable model methods
-
     def get_label(self) -> str:
         if self.name:
             return f'VM #{self.pk} - "{self.name}"'
@@ -141,21 +164,30 @@ class VM(BaseModel, BillableModelMixin):
         """
         Build a map of SKU strings to a lambda that returns the current quantity of the field
         """
+        image_sku = skus.IMAGE_SKU_MAP.get(self.image.pk, f'IMAGE_{skus.DEFAULT}')
+        sku_map = {image_sku: lambda vm: 1}
+        if 'phantom' in image_sku.lower():
+            return sku_map
+
         # Start defining the SKUs
-        sku_map = {
+        sku_map.update({
             skus.RAM_001: lambda vm: vm.ram,
             skus.VCPU_001: lambda vm: vm.cpu,
             # NAT is based on the presence of an IP Address on this VM that has a Public IP Address
             skus.NAT_001: lambda vm: vm.vm_ips.filter(public_ip__isnull=False).count(),
-        }
+        })
 
         # Add the keys that are programmatically based on the state of this VM
-        image_sku = skus.IMAGE_SKU_MAP.get(self.image.pk, f'IMAGE_{skus.DEFAULT}')
         storage_type_sku = skus.STORAGE_SKU_MAP.get(self.server.storage_type.pk, f'ST_{skus.DEFAULT}')
-        sku_map[image_sku] = lambda vm: 1
-
         sku_map[storage_type_sku] = (
             lambda vm: vm.storages.aggregate(total_gb=Coalesce(models.Sum('gb'), models.Value(0)))['total_gb']
         )
+        # Device SKUs
+        try:
+            device = list(self.server.devices.iterator())[0]
+            sku_map[device.device_type.sku] = lambda vm: vm.gpu
+        except IndexError:
+            # Server has no devices so no need to add to BOM of VM
+            pass
 
         return sku_map

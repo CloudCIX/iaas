@@ -34,7 +34,7 @@ class Allocation(BaseModel):
     Only CIX can modify Allocation records, but they can be assigned to other Addresses who can then read them.
     """
     # Constants
-    private_allocations = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16']
+    private_allocations = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
 
     # Fields
     address_id = models.IntegerField(null=True)

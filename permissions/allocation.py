@@ -34,22 +34,6 @@ class Permissions:
         return None
 
     @staticmethod
-    def head(request: Request, allocation: Allocation) -> Optional[Http403]:
-        """
-        The request to access an Allocation record is valid if:
-        - The User's Member owns the ASN that the Allocation is in, or
-        - The User's Address owns the Allocation record.
-        """
-        if request.user.address['id'] == 1:
-            return None
-
-        if request.user.member['id'] != allocation.asn.member_id:
-            if request.user.address['id'] != allocation.address_id:
-                return Http403()
-
-        return None
-
-    @staticmethod
     def read(request: Request, allocation: Allocation) -> Optional[Http403]:
         """
         The request to read an Allocation record is valid if:

@@ -113,6 +113,7 @@ class RecordCollection(APIView):
             with tracer.start_span('creating_object_in_rage4', child_of=request.span):
                 logger = logging.getLogger('iaas.views.record.create')
                 data = {
+                    'id': controller.instance.domain_id,
                     'name': controller.instance.name,
                     'content': controller.instance.content,
                     'type': controller.instance.type,
@@ -120,11 +121,12 @@ class RecordCollection(APIView):
                     'geozone': controller.instance.georegion,
                     'priority': controller.instance.priority,
                 }
-                response = rage4.record_create(controller.instance.domain_id, data)
-                if response is None:
+                response = rage4.record_create(data)
+                try:
+                    rage4_response = response.json()
+                except (AttributeError, ValueError):
                     logger.error('Record create: No response received from Rage4 API')
                     return Http503(error_code='iaas_record_create_001')
-                rage4_response = response.json()
                 if response.status_code != 200 or not rage4_response.get('status'):
                     # Request to Rage4 will return a 200 response.status_code. status will be False if request fails
                     # Success Request - # {'status': True, 'id': 1234, 'error': ''}
@@ -181,7 +183,7 @@ class RecordResource(APIView):
 
         # Check permissions.
         with tracer.start_span('checking_permissions', child_of=request.span):
-            error = Permissions.head(request, obj)
+            error = Permissions.read(request, obj)
             if error is not None:
                 return Http404()
 
@@ -277,6 +279,7 @@ class RecordResource(APIView):
             with tracer.start_span('updating_object_in_rage4', child_of=request.span):
                 logger = logging.getLogger('iaas.views.record.update')
                 data = {
+                    'id': controller.instance.pk,
                     'name': controller.instance.name,
                     'content': controller.instance.content,
                     'ttl': controller.instance.time_to_live,
@@ -284,11 +287,12 @@ class RecordResource(APIView):
                     'priority': controller.instance.priority,
                     'type': obj.type,
                 }
-                response = rage4.record_update(controller.instance.pk, data)
-                if response is None:
+                response = rage4.record_update(data)
+                try:
+                    rage4_response = response.json()
+                except (AttributeError, ValueError):
                     logger.error('Record update: No response received from Rage4 API')
                     return Http503(error_code='iaas_record_update_002')
-                rage4_response = response.json()
                 if response.status_code != 200 or not rage4_response.get('status'):
                     # Request to Rage4 will return a 200 response.status_code. status will be False if request fails
                     # Success Request - # {'status': True, 'id': 1234, 'error': ''}
@@ -354,11 +358,15 @@ class RecordResource(APIView):
         if settings.PRODUCTION_DEPLOYMENT:  # pragma: no cover
             with tracer.start_span('deleting_object_from_rage4', child_of=request.span):
                 logger = logging.getLogger('iaas.views.record.delete')
-                response = rage4.record_delete(obj.pk)
-                if response is None:
+                data = {
+                    'id': obj.pk,
+                }
+                response = rage4.record_delete(data)
+                try:
+                    rage4_response = response.json()
+                except (AttributeError, ValueError):
                     logger.error('Record delete: No response received from Rage4 API')
                     return Http503(error_code='iaas_record_delete_002')
-                rage4_response = response.json()
                 if response.status_code != 200 or not rage4_response.get('status'):
                     # Request to Rage4 will return a 200 response.status_code. status will be False if request fails
                     # Success Request - # {'status': True, 'id': 1234, 'error': ''}

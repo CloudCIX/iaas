@@ -84,8 +84,7 @@ class SnapshotCreateController(ControllerBase):
             return 'iaas_snapshot_create_102'
 
         # Check that vm is in correct state for creation of snapshot
-        valid_states = [states.RUNNING, states.QUIESCED]
-        if vm.state not in valid_states:
+        if vm.state != states.RUNNING:
             return 'iaas_snapshot_create_103'
 
         # check
@@ -112,7 +111,7 @@ class SnapshotCreateController(ControllerBase):
         type: string
         """
         # name is sent
-        if not bool(name):
+        if name is None:
             name = ''
         name = str(name).strip()
         if len(name) == 0:
@@ -207,8 +206,8 @@ class SnapshotUpdateController(ControllerBase):
         if state not in available_states[self._instance.state]:
             return 'iaas_snapshot_update_106'
 
-        # Can only change state if VM has state RUNNING or QUIESCED
-        if self._instance.vm.state not in [states.RUNNING, states.QUIESCED]:
+        # Can only change state if VM has state RUNNING
+        if self._instance.vm.state != states.RUNNING:
             return 'iaas_snapshot_update_107'
 
         self.cleaned_data['state'] = state

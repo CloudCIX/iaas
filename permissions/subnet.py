@@ -16,56 +16,6 @@ __all__ = [
 class Permissions:
 
     @staticmethod
-    def head(request: Request, subnet: Subnet, span: Span) -> Optional[Http403]:
-        """
-        The request to access a Subnet record is valid if:
-        - The requesting User's Address owns the Subnet.
-        - The requesting User's Address owns the parent Subnet of the Subnet.
-        - The requesting User's Address owns the Allocation of the Subnet.
-        - The Subnet is owned by an Address that is linked to the User's Address, and is in a non self managed Member.
-        - The Subnet is related to a cloud Project owned by the requesting User's Address.
-        """
-        # API User allowance
-        if request.user.id == 1:  # pragma: no cover
-            return None
-
-        # If the Subnet is for the Cloud, handle things a little differently
-        if subnet.cloud:
-            # If the request is coming from Robot  ensure they can read it
-            if request.user.robot:
-                virtual_router = VirtualRouter.objects.get(pk=subnet.virtual_router_id)
-                # If the User is not global, ensure that the Project is in the same region.
-                if virtual_router.project.region_id != request.user.address['id']:
-                    return Http403()
-            else:
-                # Ensure that the Subnet is owned by the requesting User ID
-                if request.user.address['id'] != subnet.address_id:
-                    # If user is global and Subnet is from their Member, they need to change address
-                    if request.user.is_global and request.user.member['id'] == subnet.allocation.asn.member_id:
-                        return Http403()
-                    return Http403()
-
-        # If not, check the other permissions
-        else:
-            obj_addresses = {
-                subnet.address_id,
-                subnet.parent.address_id if subnet.parent is not None else -1,
-                subnet.allocation.address_id,
-            }
-            if request.user.address['id'] not in obj_addresses:
-                # Check that the Subnet is owned by a linked Address by attempting to read the Address that owns it.
-                response = Membership.address.read(
-                    token=request.auth,
-                    pk=subnet.address_id,
-                    span=span,
-                )
-                if response.status_code != 200:
-                    return Http403()
-                if response.json()['content']['member']['self_managed']:
-                    return Http403()
-        return None
-
-    @staticmethod
     def create(request: Request) -> Optional[Http403]:
         """
         The request to create a Subnet record is valid if:
@@ -96,7 +46,7 @@ class Permissions:
             return None
 
         # If the Subnet is for the Cloud, handle things a little differently
-        if subnet.cloud:
+        if subnet.from_project_network:
             # If the request is coming from Robot, ensure they can read it
             if request.user.robot:
                 virtual_router = VirtualRouter.objects.get(pk=subnet.virtual_router_id)
@@ -152,7 +102,7 @@ class Permissions:
             return Http403(error_code='iaas_subnet_update_201')
 
         # If it is a cloud subnet it can only be updated when updating the virtual router it is associated with
-        if subnet.cloud:
+        if subnet.from_project_network:
             return Http403(error_code='iaas_subnet_update_202')
 
         obj_addresses = {
@@ -198,7 +148,7 @@ class Permissions:
             return Http403(error_code='iaas_subnet_delete_202')
 
         # If it is a cloud subnet it can only be deleted when deleting the virtual router it is associated with
-        if subnet.cloud:
+        if subnet.from_project_network:
             return Http403(error_code='iaas_subnet_delete_203')
 
         # If not, check the other permissions

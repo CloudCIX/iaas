@@ -59,3 +59,6 @@ iaas_firewall_rule_create_117 = (
 iaas_firewall_rule_create_118 = (
     'The "pci_logging" parameter is invalid. "pci_logging" can only be True if the "allow" parameter is True.'
 )
+iaas_firewall_rule_create_119 = (
+    'The "port" parameter is invalid. The maximum allowed length of "port" is 256 characters only.'
+)

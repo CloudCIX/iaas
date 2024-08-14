@@ -83,8 +83,7 @@ class BackupCreateController(ControllerBase):
             return 'iaas_backup_create_102'
 
         # Check that vm is in correct state for creation of backup
-        valid_states = [states.RUNNING, states.QUIESCED]
-        if vm.state not in valid_states:
+        if vm.state != states.RUNNING:
             return 'iaas_backup_create_103'
 
         self.cleaned_data['vm'] = vm
@@ -96,7 +95,7 @@ class BackupCreateController(ControllerBase):
         type: string
         """
         # name is sent
-        if not bool(name):
+        if name is None:
             name = ''
         name = str(name).strip()
         if len(name) == 0:
@@ -209,8 +208,8 @@ class BackupUpdateController(ControllerBase):
         if state not in available_states[self._instance.state]:
             return 'iaas_backup_update_106'
 
-        # Can only change state if VM has state RUNNING or QUIESCED
-        if self._instance.vm.state not in [states.RUNNING, states.QUIESCED]:
+        # Can only change state if VM has state RUNNING
+        if self._instance.vm.state != states.RUNNING:
             return 'iaas_backup_update_107'
 
         self.cleaned_data['state'] = state

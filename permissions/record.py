@@ -14,17 +14,6 @@ __all__ = [
 class Permissions:
 
     @staticmethod
-    def head(request: Request, record: Record) -> Optional[Http403]:
-        """
-        The request to access a Record record is valid if:
-        - The requesting User is in the Member that owns the Record.
-        """
-        if request.user.member['id'] not in {1, record.domain.member_id}:
-            return Http403()
-
-        return None
-
-    @staticmethod
     def read(request: Request, record: Record) -> Optional[Http403]:
         """
         The request to read a Record record is valid if:

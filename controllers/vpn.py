@@ -28,7 +28,6 @@ __all__ = [
 #  1 - 63 chars allowed
 FQDN_PATTERN = re.compile(r'^[a-z0-9]([a-z-0-9-]{0,61}[a-z0-9])?$', re.IGNORECASE)
 SPECIAL_CHAR_PATTERN = re.compile(r'["\'@+\-\/\\|=]')
-IKE_MODE_CHOICES = dict(VPN.MODES)
 IKE_VERSION_CHOICES = dict(VPN.VERSIONS)
 IPSEC_ESTABLISH_CHOICES = dict(VPN.ESTABLISH_TIMES)
 TYPE_CHOICES = dict(VPN.TYPES)
@@ -82,7 +81,6 @@ class VPNCreateController(ControllerBase):
             'ike_gateway_value',
             'ike_encryption',
             'ike_lifetime',
-            'ike_mode',
             'ike_pre_shared_key',
             'ike_version',
             'ipsec_authentication',
@@ -213,7 +211,6 @@ class VPNCreateController(ControllerBase):
             VPN Tunnel.
 
             The IKE phase authentication algorithms supported by CloudCIX are;
-            - `md5`
             - `sha1`
             - `sha-256`
             - `sha-384`
@@ -294,7 +291,7 @@ class VPNCreateController(ControllerBase):
 
         ike_gateway_type = str(ike_gateway_type).strip()
 
-        if ike_gateway_type != VPN.GATEWAY_PUBLIC_IP and ike_gateway_type != VPN.GATEWAY_HOSTNAME:
+        if ike_gateway_type not in (VPN.GATEWAY_PUBLIC_IP, VPN.GATEWAY_HOSTNAME):
             return 'iaas_vpn_create_140'
 
         self.cleaned_data['ike_gateway_type'] = ike_gateway_type
@@ -366,8 +363,8 @@ class VPNCreateController(ControllerBase):
         #  Split ike_gateway_value into list of DNS labels
         labels = ike_gateway_value.split('.')
 
-        # Check that all labels match that pattern.
-        if all(FQDN_PATTERN.match(label) for label in labels):
+        # Check for existence of at least one '.' and all labels match that pattern.
+        if len(labels) > 1 and all(FQDN_PATTERN.match(label) for label in labels):
             self.cleaned_data['ike_gateway_value'] = ike_gateway_value
             return None
         return 'iaas_vpn_create_142'
@@ -381,8 +378,6 @@ class VPNCreateController(ControllerBase):
             - `aes-128-cbc`
             - `aes-192-cbc`
             - `aes-256-cbc`
-            - `des-cbc`
-            - `3des-cbc`
 
             Please ensure that each entry in the array matches one of the above strings exactly.
             Duplicate entries will be ignored.
@@ -433,39 +428,6 @@ class VPNCreateController(ControllerBase):
         self.cleaned_data['ike_lifetime'] = lifetime
         return None
 
-    def validate_ike_mode(self, mode: Optional[str]) -> Optional[str]:
-        """
-        description: |
-            String value of the chosen mode for the IKE phase.
-
-            The IKE phase modes supported by CloudCIX are;
-            - `main`
-            - `aggressive`
-
-            Please ensure the sent string matches one of these exactly.
-
-            It is set to `aggressive` for Dynamic Secure connect type VPNs, or for VPNs using 'hostname' gateways
-        type: string
-        """
-        if 'vpn_type' not in self.cleaned_data:
-            return None
-
-        # Hostname gateway type always has aggressive mode
-        if (self.cleaned_data.get('ike_gateway_type') == VPN.GATEWAY_HOSTNAME
-                or self.cleaned_data['vpn_type'] == VPN.DYNAMIC_SECURE_CONNECT):
-            self.cleaned_data['ike_mode'] = VPN.AGGRESSIVE_MODE
-            return None
-
-        if mode is None:
-            mode = ''
-        mode = str(mode).strip()
-
-        if mode not in IKE_MODE_CHOICES:
-            return 'iaas_vpn_create_113'
-
-        self.cleaned_data['ike_mode'] = mode
-        return None
-
     def validate_ike_pre_shared_key(self, pre_shared_key: Optional[str]) -> Optional[str]:
         """
         description: |
@@ -481,11 +443,6 @@ class VPNCreateController(ControllerBase):
             - `\\`
             - `|`
             - `=`
-
-            Also note that the default max length of the pre shared key is 255 characters, except in the following
-            cases;
-            - If the chosen IKE encryption algorithm is `des-cbc`, the max length is 8 characters
-            - If the chosen IKE encryption algorithm is `3des-cbc`, the max length is 24 characters
 
             It is set to CloudCIX defined key for Dynamic Secure connect type VPNs
         type: string
@@ -504,11 +461,6 @@ class VPNCreateController(ControllerBase):
                 return 'iaas_vpn_create_115'
 
             # Check the length
-            encryption_alg = self.cleaned_data.get('ike_encryption', None)
-            if encryption_alg == VPN.DES and len(pre_shared_key) > 8:
-                return 'iaas_vpn_create_116'
-            elif encryption_alg == VPN.DES3 and len(pre_shared_key) > 24:
-                return 'iaas_vpn_create_117'
             elif len(pre_shared_key) > self.get_field('ike_pre_shared_key').max_length:
                 return 'iaas_vpn_create_118'
 
@@ -556,7 +508,6 @@ class VPNCreateController(ControllerBase):
             VPN Tunnel.
 
             The IPSec phase authentication algorithms supported by CloudCIX are;
-            - `hmac-md5-96`
             - `hmac-sha1-96`
             - `hmac-sha-256-128`
 
@@ -582,7 +533,7 @@ class VPNCreateController(ControllerBase):
 
             self.cleaned_data['ipsec_authentication'] = ','.join(auth_algs)
         if self.cleaned_data['vpn_type'] == VPN.DYNAMIC_SECURE_CONNECT:
-            self.cleaned_data['ipsec_authentication'] = VPN.HMAC_SHA384
+            self.cleaned_data['ipsec_authentication'] = VPN.HMAC_SHA256
         return None
 
     def validate_ipsec_encryption(self, encryption: Optional[str]) -> Optional[str]:
@@ -594,8 +545,6 @@ class VPNCreateController(ControllerBase):
             - `aes-128-cbc`
             - `aes-192-cbc`
             - `aes-256-cbc`
-            - `des-cbc`
-            - `3des-cbc`
             - `aes-128-gcm`
             - `aes-192-gcm`
             - `aes-256-gcm`
@@ -879,8 +828,8 @@ class VPNUpdateController(ControllerBase):
             'ike_gateway_value',
             'ike_encryption',
             'ike_lifetime',
-            'ike_mode',
             'ike_pre_shared_key',
+            'ike_remote_identifier',
             'ike_version',
             'ipsec_authentication',
             'ipsec_encryption',
@@ -962,7 +911,6 @@ class VPNUpdateController(ControllerBase):
             VPN Tunnel.
 
             The IKE phase authentication algorithms supported by CloudCIX are;
-            - `md5`
             - `sha1`
             - `sha-256`
             - `sha-384`
@@ -1037,7 +985,7 @@ class VPNUpdateController(ControllerBase):
 
         ike_gateway_type = str(ike_gateway_type).strip()
 
-        if ike_gateway_type != VPN.GATEWAY_PUBLIC_IP and ike_gateway_type != VPN.GATEWAY_HOSTNAME:
+        if ike_gateway_type not in (VPN.GATEWAY_PUBLIC_IP, VPN.GATEWAY_HOSTNAME):
             return 'iaas_vpn_update_136'
 
         self.cleaned_data['ike_gateway_type'] = ike_gateway_type
@@ -1103,8 +1051,8 @@ class VPNUpdateController(ControllerBase):
         #  Split ike_gateway_value into list of DNS labels
         labels = ike_gateway_value.split('.')
 
-        # Check that all labels match that pattern.
-        if all(FQDN_PATTERN.match(label) for label in labels):
+        # Check for existence of at least one '.' and all labels match that pattern.
+        if len(labels) > 1 and all(FQDN_PATTERN.match(label) for label in labels):
             self.cleaned_data['ike_gateway_value'] = ike_gateway_value
             return None
         return 'iaas_vpn_update_138'
@@ -1118,8 +1066,6 @@ class VPNUpdateController(ControllerBase):
             - `aes-128-cbc`
             - `aes-192-cbc`
             - `aes-256-cbc`
-            - `des-cbc`
-            - `3des-cbc`
 
             Please ensure that each entry in the array matches one of the above strings exactly.
             Duplicate entries will be ignored.
@@ -1167,38 +1113,6 @@ class VPNUpdateController(ControllerBase):
         self.cleaned_data['ike_lifetime'] = lifetime
         return None
 
-    def validate_ike_mode(self, mode: Optional[str]) -> Optional[str]:
-        """
-        description: |
-            String value of the chosen mode for the IKE phase.
-
-            The IKE phase modes supported by CloudCIX are;
-            - `main`
-            - `aggressive`
-
-            If the 'ike_mode' is 'hostname', this will be set to 'aggressive'.
-
-            Please ensure the sent string matches one of these exactly.
-        type: string
-        """
-        # No updates here for Dynamic secure connect VPN type
-        if self.cleaned_data.get('vpn_type', self._instance.vpn_type) == VPN.DYNAMIC_SECURE_CONNECT:
-            return None
-
-        # Check for hostname gateway type
-        if self.cleaned_data.get('ike_gateway_type', self._instance.ike_gateway_type) == VPN.GATEWAY_HOSTNAME:
-            mode = VPN.AGGRESSIVE_MODE
-
-        if mode is None:
-            mode = ''
-        mode = str(mode).strip()
-
-        if mode not in IKE_MODE_CHOICES:
-            return 'iaas_vpn_update_109'
-
-        self.cleaned_data['ike_mode'] = mode
-        return None
-
     def validate_ike_pre_shared_key(self, pre_shared_key: Optional[str]) -> Optional[str]:
         """
         description: |
@@ -1215,10 +1129,6 @@ class VPNUpdateController(ControllerBase):
             - `|`
             - `=`
 
-            Also note that the default max length of the pre shared key is 255 characters, except in the following
-            cases;
-            - If the chosen IKE encryption algorithm is `des-cbc`, the max length is 8 characters
-            - If the chosen IKE encryption algorithm is `3des-cbc`, the max length is 24 characters
         type: string
         """
         # No updates here for Dynamic secure connect VPN type
@@ -1236,16 +1146,38 @@ class VPNUpdateController(ControllerBase):
             return 'iaas_vpn_update_111'
 
         # Check the length
-        encryption_alg = self.cleaned_data.get('ike_encryption', self._instance.ike_encryption)
-        if encryption_alg == VPN.DES and len(pre_shared_key) > 8:
-            return 'iaas_vpn_update_112'
-        elif encryption_alg == VPN.DES3 and len(pre_shared_key) > 24:
-            return 'iaas_vpn_update_113'
-        elif len(pre_shared_key) > self.get_field('ike_pre_shared_key').max_length:
+        if len(pre_shared_key) > self.get_field('ike_pre_shared_key').max_length:
             return 'iaas_vpn_update_114'
 
         self.cleaned_data['ike_pre_shared_key'] = pre_shared_key
         return None
+
+    def validate_ike_remote_identifier(self, ike_remote_identifier: str) -> Optional[str]:
+        """
+        description: |
+            A string containing the value for the remote (Non-Project) IKE identifier for the VPN.
+            It's default value is remote-<vpn_id>-<region_id>.<organisation_url> .
+            Must be a valid FQDN of maximum char length 253
+        type: string
+        """
+        if ike_remote_identifier in ['', None]:
+            return 'iaas_vpn_update_139'
+
+        if len(ike_remote_identifier) >= self.get_field('ike_remote_identifier').max_length:
+            return 'iaas_vpn_update_140'
+
+        # Remove trailing dot
+        if ike_remote_identifier[-1] == '.':
+            ike_remote_identifier = ike_remote_identifier[0:-1]
+
+        #  Split ike_remote_identifier into list of DNS labels
+        labels = ike_remote_identifier.split('.')
+
+        # Check for existence of at least one '.' and all labels match that pattern.
+        if len(labels) > 1 and all(FQDN_PATTERN.match(label) for label in labels):
+            self.cleaned_data['ike_remote_identifier'] = ike_remote_identifier
+            return None
+        return 'iaas_vpn_update_141'
 
     def validate_ike_version(self, version: Optional[str]) -> Optional[str]:
         """
@@ -1280,7 +1212,6 @@ class VPNUpdateController(ControllerBase):
             VPN Tunnel.
 
             The IPSec phase authentication algorithms supported by CloudCIX are;
-            - `hmac-md5-96`
             - `hmac-sha1-96`
             - `hmac-sha-256-128`
 
@@ -1315,8 +1246,6 @@ class VPNUpdateController(ControllerBase):
             - `aes-128-cbc`
             - `aes-192-cbc`
             - `aes-256-cbc`
-            - `des-cbc`
-            - `3des-cbc`
             - `aes-128-gcm`
             - `aes-192-gcm`
             - `aes-256-gcm`
@@ -1465,7 +1394,7 @@ class VPNUpdateController(ControllerBase):
 
         for index, data in enumerate(routes):
             pk = data.get('id', None)
-            if bool(pk):
+            if pk is not None:
                 updated_route_ids.append(pk)
                 # Update Route
                 try:
@@ -1512,7 +1441,7 @@ class VPNUpdateController(ControllerBase):
 
         to_delete = list(set(current_route_ids) - set(updated_route_ids))
 
-        if bool(to_delete):
+        if any(to_delete):
             Route.objects.filter(pk__in=to_delete).update(deleted=datetime.now())
 
         # If we make it here, then everything is fine
@@ -1572,7 +1501,7 @@ class VPNUpdateController(ControllerBase):
 
         for index, data in enumerate(vpn_clients):
             pk = data.get('id', None)
-            if bool(pk):
+            if pk is not None:
                 updated_vpn_client_ids.append(pk)
                 # Update VPNClient
                 try:
@@ -1616,7 +1545,7 @@ class VPNUpdateController(ControllerBase):
 
         to_delete = list(set(current_vpn_client_ids) - set(updated_vpn_client_ids))
 
-        if bool(to_delete):
+        if any(to_delete):
             VPNClient.objects.filter(pk__in=to_delete).update(deleted=datetime.now())
 
         # If we make it here, then everything is fine

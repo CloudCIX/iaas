@@ -74,3 +74,7 @@ class Backup(BaseModel):
         ).exclude(
             state__in=states.STABLE_STATES,
         ).exists()
+
+    @property
+    def scrub_queue_time_passed(self):
+        return False

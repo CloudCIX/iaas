@@ -1,0 +1,3 @@
+[{"created": "2017-07-28T00:00:00", "id": 1, "name": "HyperV", "updated": "2017-07-28T00:00:00", "uri": "/server_type/1/"}, 
+{"created": "2017-07-28T00:00:00", "id": 2, "name": "KVM", "updated": "2017-07-28T00:00:00", "uri": "/server_type/2/"}, 
+{"created": "2019-08-12T15:03:52.776268", "id": 3, "name": "Phantom", "updated": "2019-08-12T15:03:52.776268", "uri": "/server_type/3/"}]
