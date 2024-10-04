@@ -16,6 +16,11 @@ from .firewall_rule import FirewallRuleCreateController
 from .image import ImageListController, ImageUpdateController
 from .interface import InterfaceCreateController, InterfaceListController, InterfaceUpdateController
 from .ip_address import IPAddressListController, IPAddressCreateController, IPAddressUpdateController
+from .ip_address_group import (
+    IPAddressGroupListController,
+    IPAddressGroupCreateController,
+    IPAddressGroupUpdateController,
+)
 from .ipmi import IPMICreateController, IPMIListController
 from .ip_validator import IPValidatorController
 from .metrics import MetricsController
@@ -119,6 +124,11 @@ __all__ = [
     'IPAddressListController',
     'IPAddressCreateController',
     'IPAddressUpdateController',
+
+    # IPAddressGroup
+    'IPAddressGroupListController',
+    'IPAddressGroupCreateController',
+    'IPAddressGroupUpdateController',
 
     # IPMI
     'IPMICreateController',

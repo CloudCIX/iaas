@@ -15,6 +15,7 @@ from .firewall_rule import FirewallRuleSerializer
 from .image import ImageSerializer
 from .interface import InterfaceSerializer
 from .ip_address import NATIPAddressSerializer, IPAddressSerializer
+from .ip_address_group import IPAddressGroupSerializer
 from .ipmi import IPMISerializer
 from .ip_validator import IPValidatorSerializer
 from .metrics import MetricsSerializer  # noqa: F401
@@ -102,6 +103,9 @@ __all__ = [
     # IPAddress
     'NATIPAddressSerializer',
     'IPAddressSerializer',
+
+    # IP Address Group
+    'IPAddressGroupSerializer',
 
     # IP Validator
     'IPValidatorSerializer',

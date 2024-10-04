@@ -18,6 +18,7 @@ from .dynamic_remote_subnet import DynamicRemoteSubnetResource
 from .image import ImageCollection, ImageResource
 from .interface import InterfaceCollection, InterfaceResource
 from .ip_address import IPAddressCollection, IPAddressResource
+from .ip_address_group import IPAddressGroupCollection, IPAddressGroupResource
 from .ipmi import IPMICollection, IPMIResource
 from .ip_validator import IPValidator
 from .metrics import MetricsResource
@@ -119,6 +120,10 @@ __all__ = [
     # IPAddress
     'IPAddressCollection',
     'IPAddressResource',
+
+    # IP Address Group
+    'IPAddressGroupCollection',
+    'IPAddressGroupResource',
 
     # IPMI
     'IPMICollection',

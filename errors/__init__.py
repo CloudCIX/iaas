@@ -19,6 +19,7 @@ from .firewall_rule import *
 from .image import *
 from .interface import *
 from .ip_address import *
+from .ip_address_group import *
 from .ipmi import *
 from .ip_validator import *
 from .metrics import *

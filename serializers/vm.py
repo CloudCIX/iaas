@@ -47,6 +47,9 @@ class BaseVMSerializer(serpy.Serializer):
     id:
         description: The id given for the VM.
         type: integer
+    image_id:
+        description: The ID of the Image for this VM.
+        type: integer
     name:
         description: The name given to the vm.
         type: string
@@ -59,7 +62,7 @@ class BaseVMSerializer(serpy.Serializer):
         description: The number of ram allocated for the VM.
         type: integer
     server_id:
-        description: The Server this VM has been placed on.
+        description: The ID of the Server this VM has been placed on.
         type: integer
     stable:
         description: |
@@ -89,6 +92,7 @@ class BaseVMSerializer(serpy.Serializer):
     gpu = serpy.Field()
     guid = serpy.Field()
     id = serpy.Field()
+    image_id = serpy.Field()
     name = serpy.Field()
     public_key = serpy.Field(required=False)
     ram = serpy.Field()
@@ -138,6 +142,9 @@ class VMSerializer(BaseVMSerializer):
         type: integer
     image:
         $ref: '#/components/schemas/Image'
+    image_id:
+        description: The ID of the Image for this VM.
+        type: integer
     ip_addresses:
         description: A list of private IP Address objects, containing a public ip if one exists
         type: array
@@ -159,7 +166,7 @@ class VMSerializer(BaseVMSerializer):
         description: The number of ram allocated for the VM.
         type: integer
     server_id:
-        description: The Server this VM has been placed on.
+        description: The ID of the Server this VM has been placed on.
         type: integer
     stable:
         description: |

@@ -41,7 +41,7 @@ class IPAddressListController(ControllerBase):
             'subnet__address_id': ('in',),
             'subnet__allocation__asn__member_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'subnet__allocation__asn__number': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
-            'subnet__virtual_router': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
+            'subnet__virtual_router_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'subnet__vlan': ('in',),
             'updated': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,
             'vm_id': ControllerBase.DEFAULT_NUMBER_FILTER_OPERATORS,

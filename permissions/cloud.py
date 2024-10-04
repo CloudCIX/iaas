@@ -23,7 +23,7 @@ class Permissions:
     def create(request: Request) -> Optional[Http403]:
         """
         The request to use this method is valid if;
-        - The requesting User's Address is self managed.
+        - The requesting User's Member is self managed.
         - The requesting user is public.
         """
         if request.user.robot:

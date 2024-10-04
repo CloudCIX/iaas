@@ -169,18 +169,20 @@ class RunRobotCollection(APIView):
             driver_dict = deepcopy(DRIVER_METHODS_DICT)
             response = {
                 # Driver response
-                'backup_hyperv': driver_dict,
-                'backup_kvm': driver_dict,
-                'ceph': driver_dict,
-                'gpu': driver_dict,
                 'project_ids': [],
-                'snapshot_hyperv': driver_dict,
-                'snapshot_kvm': driver_dict,
-                'virtual_router': driver_dict,
-                'virtual_router_phantom': driver_dict,
-                'vm_hyperv': driver_dict,
-                'vm_kvm': driver_dict,
-                'vm_phantom': driver_dict,
+                'resource': {
+                    'backup_hyperv': driver_dict,
+                    'backup_kvm': driver_dict,
+                    'ceph': driver_dict,
+                    'gpu': driver_dict,
+                    'snapshot_hyperv': driver_dict,
+                    'snapshot_kvm': driver_dict,
+                    'virtual_router': driver_dict,
+                    'virtual_router_phantom': driver_dict,
+                    'vm_hyperv': driver_dict,
+                    'vm_kvm': driver_dict,
+                    'vm_phantom': driver_dict,
+                },
                 # Required resource names for current version response
                 'backups': driver_dict,
                 'snapshots': driver_dict,
@@ -209,47 +211,57 @@ class RunRobotCollection(APIView):
                 return Response({'content': response})
 
         with tracer.start_span('get_virtual_routers_to_process', child_of=request.span):
-            response['virtual_router'] = _get_objs_to_process(VirtualRouter, project_ids)
-            response['virtual_router_phantom'] = _get_objs_to_process(VirtualRouter, project_ids, phantom=True)
+
+            virtual_router = _get_objs_to_process(VirtualRouter, project_ids)
+            response['resource']['virtual_router'] = virtual_router
+            virtual_router_phantom = _get_objs_to_process(VirtualRouter, project_ids, phantom=True)
+            response['resource']['virtual_router_phantom'] = virtual_router_phantom
             # Required resource key for current version response
             response['virtual_routers'] = {
-                key: response['virtual_router'].get(key) + response['virtual_router_phantom'].get(key)
-                for key in set(response['virtual_router']) | set(response['virtual_router_phantom'])
+                key: virtual_router.get(key) + virtual_router_phantom.get(key)
+                for key in set(virtual_router) | set(virtual_router_phantom)
             }
 
         with tracer.start_span('get_vms_to_process', child_of=request.span):
-            response['vm_hyperv'] = _get_objs_to_process(VM, project_ids, servers=[ServerType.HYPERV])
-            response['vm_kvm'] = _get_objs_to_process(VM, project_ids, servers=VM_KVM_SERVERS)
-            response['vm_phantom'] = _get_objs_to_process(VM, project_ids, servers=[ServerType.PHANTOM])
+            vm_hyperv = _get_objs_to_process(VM, project_ids, servers=[ServerType.HYPERV])
+            response['resource']['vm_hyperv'] = vm_hyperv
+            vm_kvm = _get_objs_to_process(VM, project_ids, servers=VM_KVM_SERVERS)
+            response['resource']['vm_kvm'] = vm_kvm
+            vm_phantom = _get_objs_to_process(VM, project_ids, servers=[ServerType.PHANTOM])
+            response['resource']['vm_phantom'] = vm_phantom
             # Required resource key for current version response
             response['vms'] = {
-                key: response['vm_hyperv'].get(key) + response['vm_kvm'].get(key) + response['vm_phantom'].get(key)
-                for key in set(response['vm_hyperv']) | set(response['vm_kvm']) | set(response['vm_phantom'])
+                key: vm_hyperv.get(key) + vm_kvm.get(key) + vm_phantom.get(key)
+                for key in set(vm_hyperv) | set(vm_kvm) | set(vm_phantom)
             }
 
         with tracer.start_span('get_snapshots_to_process', child_of=request.span):
             if run_robot_cache_true:
-                response['snapshot_hyperv'] = _get_objs_to_process(Snapshot, project_ids, servers=[ServerType.HYPERV])
-                response['snapshot_kvm'] = _get_objs_to_process(Snapshot, project_ids, servers=VM_KVM_SERVERS)
+                snapshot_hyperv = _get_objs_to_process(Snapshot, project_ids, servers=[ServerType.HYPERV])
+                response['resource']['snapshot_hyperv'] = snapshot_hyperv
+                snapshot_kvm = _get_objs_to_process(Snapshot, project_ids, servers=VM_KVM_SERVERS)
+                response['resource']['snapshot_kvm'] = snapshot_kvm
                 # Required resource key for current version response
                 response['snapshots'] = {
-                    key: response['snapshot_hyperv'].get(key) + response['snapshot_kvm'].get(key)
-                    for key in set(response['snapshot_hyperv']) | set(response['snapshot_kvm'])
+                    key: snapshot_hyperv.get(key) + snapshot_kvm.get(key)
+                    for key in set(snapshot_hyperv) | set(snapshot_kvm)
                 }
 
         with tracer.start_span('get_backups_to_process', child_of=request.span):
             if run_robot_cache_true:
-                response['backup_hyperv'] = _get_objs_to_process(Backup, project_ids, servers=[ServerType.HYPERV])
-                response['backup_kvm'] = _get_objs_to_process(Backup, project_ids, servers=VM_KVM_SERVERS)
+                backup_hyperv = _get_objs_to_process(Backup, project_ids, servers=[ServerType.HYPERV])
+                response['resource']['backup_hyperv'] = backup_hyperv
+                backup_kvm = _get_objs_to_process(Backup, project_ids, servers=VM_KVM_SERVERS)
+                backup_kvm = response['resource']['backup_kvm'] = backup_kvm
                 # Required resource key for current version response
                 response['backups'] = {
-                    key: response['backup_hyperv'].get(key) + response['backup_kvm'].get(key)
-                    for key in set(response['backup_hyperv']) | set(response['backup_kvm'])
+                    key: backup_hyperv.get(key) + backup_kvm.get(key)
+                    for key in set(backup_hyperv) | set(backup_kvm)
                 }
 
         with tracer.start_span('get_resources_to_process', child_of=request.span):
             if run_robot_cache_true:
-                response['ceph'] = _get_objs_to_process(Resource.cephs, project_ids)
+                response['resource']['ceph'] = _get_objs_to_process(Resource.cephs, project_ids)
 
         return Response({'content': response})
 

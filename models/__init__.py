@@ -14,6 +14,7 @@ from .firewall_rule import FirewallRule
 from .image import Image
 from .interface import Interface
 from .ip_address import IPAddress
+from .ip_address_group import IPAddressGroup
 from .ipmi import IPMI
 from .pool_ip import PoolIP
 from .project import Project
@@ -56,6 +57,7 @@ __all__ = [
     'Image',
     'Interface',
     'IPAddress',
+    'IPAddressGroup',
     'IPMI',
     'PoolIP',
     'Project',

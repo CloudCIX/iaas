@@ -228,6 +228,19 @@ urlpatterns: List[path] = [
         name='ip_address_resource',
     ),
 
+    # IP Address Group
+    path(
+        'ip_address_group/',
+        views.IPAddressGroupCollection.as_view(),
+        name='ip_address_group_collection',
+    ),
+
+    path(
+        'ip_address_group/<int:pk>/',
+        views.IPAddressGroupResource.as_view(),
+        name='ip_address_group_resource',
+    ),
+
     # IPMI
     path(
         'ipmi/',
