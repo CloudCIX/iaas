@@ -185,6 +185,7 @@ class RunRobotCollection(APIView):
                 },
                 # Required resource names for current version response
                 'backups': driver_dict,
+                'ceph': driver_dict,
                 'snapshots': driver_dict,
                 'virtual_routers': driver_dict,
                 'vms': driver_dict,
@@ -262,6 +263,7 @@ class RunRobotCollection(APIView):
         with tracer.start_span('get_resources_to_process', child_of=request.span):
             if run_robot_cache_true:
                 response['resource']['ceph'] = _get_objs_to_process(Resource.cephs, project_ids)
+                response['ceph'] = response['resource']['ceph']
 
         return Response({'content': response})
 

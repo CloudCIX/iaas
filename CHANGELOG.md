@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.3.2
+Date: 2024-11-05
+
+- Bug Fix:: If `vm.userdata` is an empty string and `image.cloudinit` is False, do not proceed in validation.
+
+
+## 3.3.1
+Date: 2024-10-07
+
+- Bug Fix:: Extended `run_robot.list` service to include ``ceph`` dictionary in succesful responses.
+
 ## 3.3.0
 Date: 2024-10-04
 

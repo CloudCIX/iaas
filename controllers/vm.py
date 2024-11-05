@@ -607,11 +607,15 @@ class VMCreateController(ControllerBase):
         # Check if the OS image supports Cloud Init
         if 'image' not in self.cleaned_data:
             return None
-        image = self.cleaned_data['image']
-        if not image.cloud_init:
-            return 'iaas_vm_create_143'
 
+        image = self.cleaned_data['image']
         userdata = str(userdata).strip()
+
+        if not image.cloud_init:
+            if len(userdata) > 0:
+                return 'iaas_vm_create_143'
+            return None
+
         if len(userdata) > self.get_field('userdata').max_length:
             return 'iaas_vm_create_144'
 
@@ -1078,10 +1082,13 @@ class VMUpdateController(ControllerBase):
 
         # Check if the OS image supports Cloud Init
         image = self._instance.image
-        if not image.cloud_init:
-            return 'iaas_vm_update_133'
-
         userdata = str(userdata).strip()
+
+        if not image.cloud_init:
+            if len(userdata) > 0:
+                return 'iaas_vm_update_133'
+            return None
+
         if len(userdata) > self.get_field('userdata').max_length:
             return 'iaas_vm_update_134'
 
